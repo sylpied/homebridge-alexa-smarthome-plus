@@ -64,7 +64,7 @@ Alexa integrations can report different capabilities for the same physical produ
 
 ### Hardware paths verified during development
 
-- Qrio Lock Tokyo: lock, unlock, and current state
+- Qrio Lock: lock, unlock, and current state
 - Alexa-connected light: power, brightness, color temperature, and current state
 
 ## Credentials and stored data
