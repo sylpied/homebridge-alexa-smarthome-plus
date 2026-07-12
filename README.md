@@ -6,6 +6,14 @@ Amazon sign-in, discovery, selection, and naming are handled in the Homebridge s
 
 [日本語](README.ja.md) | [Roadmap](ROADMAP.md)
 
+## Why this variant was created
+
+During development with an `amazon.co.jp` account, the saved Alexa session was observed becoming unusable after roughly one day and requiring interactive authentication again. The project also needed a setup flow that could retrieve Alexa names after sign-in and let users choose published devices without manually maintaining configuration lists.
+
+This plugin therefore emphasizes visible authentication status, automatic session renewal when the available credentials permit it, and a clear return to browser authentication when user interaction is unavoidable.
+
+Session lifetime can vary with Amazon-side behavior, account settings, region, and authentication conditions. The roughly one-day lifetime is an observation from the development environment, not a claim that every `amazon.co.jp` session expires on that schedule.
+
 ## What the settings screen does
 
 After connecting an Amazon account, the plugin retrieves Alexa devices and routines. The result can be searched, filtered visually by type, and reduced to only the items that should appear in HomeKit.
