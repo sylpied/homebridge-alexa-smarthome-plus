@@ -101,6 +101,7 @@ export default class LightAccessory extends BaseAccessory {
             value: mapper.mapHomeKitPowerToAlexaValue(value),
             featureName: 'power',
           });
+          this.logWithContext('debug', `Set power succeeded: ${value}`);
         },
       ),
     )();

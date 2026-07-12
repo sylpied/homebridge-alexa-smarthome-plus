@@ -1,21 +1,17 @@
 {
-  "displayName": "Homebridge Alexa Smart Home",
-  "name": "homebridge-alexa-smarthome",
-  "version": "2.5.2",
-  "description": "Homebridge plugin that can control smart home devices connected to Alexa.",
+  "displayName": "Alexa Smart Home Plus",
+  "name": "homebridge-alexa-smarthome-plus",
+  "version": "1.0.0-rc.1",
+  "description": "An independently maintained Homebridge plugin for controlling Alexa smart home devices from HomeKit.",
   "license": "MIT",
-  "author": "Joey Hage <contact@jmhage.com>",
-  "homepage": "https://github.com/joeyhage/homebridge-alexa-smarthome#readme",
+  "author": "Alexa Smart Home Plus contributors",
+  "homepage": "https://github.com/sylpied/homebridge-alexa-smarthome-plus#readme",
   "repository": {
     "type": "git",
-    "url": "git://github.com/joeyhage/homebridge-alexa-smarthome.git"
+    "url": "git+https://github.com/sylpied/homebridge-alexa-smarthome-plus.git"
   },
   "bugs": {
-    "url": "https://github.com/joeyhage/homebridge-alexa-smarthome/issues"
-  },
-  "funding": {
-    "type": "github",
-    "url": "https://github.com/sponsors/joeyhage"
+    "url": "https://github.com/sylpied/homebridge-alexa-smarthome-plus/issues"
   },
   "engines": {
     "homebridge": "^1.6.0 || ^2.0.0",
@@ -28,11 +24,12 @@
     "lint": "eslint src/**.ts --max-warnings=0",
     "pre-commit": "lint-staged",
     "prepare": "husky install",
-    "prepublishOnly": "npm run lint && npm run build",
+    "prepublishOnly": "npm run verify",
     "watch": "npm run build && nodemon",
     "test": "jest --verbose --silent=false --runInBand",
     "test-watch": "nodemon --config ./nodemon-test.json",
-    "test-ci": "jest --verbose --silent=true --runInBand --testPathPattern='test.ts'",
+    "test-ci": "jest --verbose --silent=true --runInBand",
+    "verify": "npm test && npm run lint && npm run build",
     "upgrade": "npm-check-updates --target minor --upgrade"
   },
   "keywords": [
@@ -44,6 +41,7 @@
     "smarthome"
   ],
   "dependencies": {
+    "@homebridge/plugin-ui-utils": "^2.2.5",
     "alexa-cookie2": "5.0.4",
     "alexa-remote2": "8.0.5",
     "async-mutex": "^0.5.0",

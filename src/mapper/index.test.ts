@@ -11,17 +11,11 @@ import * as mapper from './index';
 describe('mapAlexaDeviceToHomeKitAccessoryInfos', () => {
   test('should not create an unsupported device', async () => {
     // given
-    const device = {
-      id: '123',
+    const device = global.createSmartHomeDevice({
       displayName: 'test light group',
-      description: 'test',
       supportedOperations: [],
-      providerData: {
-        enabled: true,
-        categoryType: 'APPLIANCE',
-        deviceType: 'OTHER',
-      },
-    };
+      deviceType: 'OTHER',
+    });
     const platform = global.createPlatform();
 
     // when
@@ -56,17 +50,11 @@ describe('mapAlexaDeviceToHomeKitAccessoryInfos', () => {
 
   test('should map switch with brightness capability to light bulb accessory', async () => {
     // given
-    const device = {
-      id: '123',
+    const device = global.createSmartHomeDevice({
       displayName: 'test switch with brightness',
-      description: 'test',
       supportedOperations: ['turnOn', 'turnOff', 'setBrightness'],
-      providerData: {
-        enabled: true,
-        categoryType: 'APPLIANCE',
-        deviceType: 'SWITCH',
-      },
-    };
+      deviceType: 'SWITCH',
+    });
     const platform = global.createPlatform();
 
     // when
@@ -90,17 +78,11 @@ describe('mapAlexaDeviceToHomeKitAccessoryInfos', () => {
 
   test('should map switch without brightness capability to switch accessory', async () => {
     // given
-    const device = {
-      id: '123',
+    const device = global.createSmartHomeDevice({
       displayName: 'test switch',
-      description: 'test',
       supportedOperations: ['turnOn', 'turnOff'],
-      providerData: {
-        enabled: true,
-        categoryType: 'APPLIANCE',
-        deviceType: 'SWITCH',
-      },
-    };
+      deviceType: 'SWITCH',
+    });
     const platform = global.createPlatform();
 
     // when

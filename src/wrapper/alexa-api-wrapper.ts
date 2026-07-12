@@ -20,7 +20,7 @@ import {
 import { AlexaApiError, HttpError, TimeoutError } from '../domain/alexa/errors';
 import EndpointStateResponse, {
   extractStates,
-} from '../domain/alexa/get-device-state.js';
+} from '../domain/alexa/get-device-state';
 import GetDeviceStatesResponse, {
   ValidStatesByDevice,
 } from '../domain/alexa/get-device-states';
@@ -31,9 +31,14 @@ import {
   validateGetDevicesSuccessful,
 } from '../domain/alexa/get-devices';
 import { extractRangeFeatures } from '../domain/alexa/save-device-capabilities';
+import {
+  AlexaRoutine,
+  AlexaRoutineResponse,
+  extractAlexaRoutines,
+} from '../domain/alexa/routine';
 import SetDeviceStateResponse, {
   validateSetStateSuccessful,
-} from '../domain/alexa/set-device-state.js';
+} from '../domain/alexa/set-device-state';
 import DeviceStore from '../store/device-store';
 import { PluginLogger } from '../util/plugin-logger';
 import {
@@ -267,6 +272,50 @@ export class AlexaApiWrapper {
           ),
       ),
       TE.flatMapEither(validateSetStateSuccessful),
+      TE.map(constVoid),
+    );
+  }
+
+  getAutomationRoutines(): TaskEither<AlexaApiError, AlexaRoutine[]> {
+    return pipe(
+      TE.tryCatch(
+        () =>
+          AlexaApiWrapper.toPromise<AlexaRoutine[] | AlexaRoutineResponse>(
+            (callback) =>
+              this.alexaRemote.getAutomationRoutines(2000, callback),
+          ),
+        (reason) =>
+          new HttpError(
+            `Error getting Alexa routines. Reason: ${
+              (reason as Error).message
+            }`,
+          ),
+      ),
+      TE.map(extractAlexaRoutines),
+    );
+  }
+
+  executeAutomationRoutine(
+    executionDevice: string,
+    routine: AlexaRoutine,
+  ): TaskEither<AlexaApiError, void> {
+    return pipe(
+      TE.tryCatch(
+        () =>
+          AlexaApiWrapper.toPromise((callback) =>
+            this.alexaRemote.executeAutomationRoutine(
+              executionDevice,
+              routine as unknown as string,
+              callback,
+            ),
+          ),
+        (reason) =>
+          new HttpError(
+            `Error executing Alexa routine ${routine.name}. Reason: ${
+              (reason as Error).message
+            }`,
+          ),
+      ),
       TE.map(constVoid),
     );
   }

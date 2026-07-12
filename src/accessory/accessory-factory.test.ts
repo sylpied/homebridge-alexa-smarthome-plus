@@ -5,17 +5,11 @@ import AccessoryFactory from './accessory-factory';
 describe('createAccessory', () => {
   test('should create a LightAccessory', () => {
     // given
-    const device = {
-      id: '123',
+    const device = global.createSmartHomeDevice({
       displayName: 'test light',
-      description: 'test',
       supportedOperations: ['turnOff', 'turnOn', 'setBrightness'],
-      providerData: {
-        enabled: true,
-        categoryType: 'APPLIANCE',
-        deviceType: 'LIGHT',
-      },
-    };
+      deviceType: 'LIGHT',
+    });
     const platform = global.createPlatform();
     const uuid = platform.HAP.uuid.generate(device.id);
     const platAcc = new platform.api.platformAccessory(
@@ -37,17 +31,11 @@ describe('createAccessory', () => {
 
   test('should create an OutletAccessory', () => {
     // given
-    const device = {
-      id: '123',
+    const device = global.createSmartHomeDevice({
       displayName: 'test plug',
-      description: 'test',
       supportedOperations: ['turnOff', 'turnOn'],
-      providerData: {
-        enabled: true,
-        categoryType: 'APPLIANCE',
-        deviceType: 'SMARTPLUG',
-      },
-    };
+      deviceType: 'SMARTPLUG',
+    });
     const platform = global.createPlatform();
     const uuid = platform.HAP.uuid.generate(device.id);
     const platAcc = new platform.api.platformAccessory(
@@ -69,17 +57,11 @@ describe('createAccessory', () => {
 
   test('should not create an unsupported device', async () => {
     // given
-    const device = {
-      id: '123',
+    const device = global.createSmartHomeDevice({
       displayName: 'test light group',
-      description: 'test',
       supportedOperations: [],
-      providerData: {
-        enabled: true,
-        categoryType: 'APPLIANCE',
-        deviceType: 'OTHER',
-      },
-    };
+      deviceType: 'OTHER',
+    });
     const platform = global.createPlatform();
     const uuid = platform.HAP.uuid.generate(device.id);
     const platAcc = new platform.api.platformAccessory(

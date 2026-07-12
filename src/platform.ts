@@ -22,8 +22,10 @@ import {
 import { match } from 'ts-pattern';
 import AccessoryFactory from './accessory/accessory-factory';
 import BaseAccessory from './accessory/base-accessory';
-import { AlexaDeviceError, AlexaError } from './domain/alexa/errors';
+import RoutineAccessory from './accessory/routine-accessory';
+import { AlexaDeviceError, AlexaError, HttpError } from './domain/alexa/errors';
 import { SmartHomeDevice } from './domain/alexa/get-devices';
+import { AlexaRoutine } from './domain/alexa/routine';
 import { AlexaPlatformConfig } from './domain/homebridge';
 import { mapAlexaDeviceToHomeKitAccessoryInfos } from './mapper';
 import * as settings from './settings';
@@ -117,6 +119,15 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
           TE.rightIO(handleAuthResult(maybeError)),
           TE.flatMap(this.findDevices.bind(this)),
           TE.flatMap(this.initDevices.bind(this)),
+          TE.flatMap((deviceAccessories) =>
+            pipe(
+              this.initRoutines(),
+              TE.map((routineAccessories) => [
+                ...deviceAccessories,
+                ...routineAccessories,
+              ]),
+            ),
+          ),
           TE.flatMapIO(this.findStaleAccessories.bind(this)),
         )().then(
           E.match(
@@ -209,8 +220,15 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
               O.match(
                 () => callback(O.none),
                 (e) => {
-                  if (firstAttempt && e.message.includes('401 Unauthorized')) {
-                    fs.rmSync(this.cookiePersistPath);
+                  if (
+                    firstAttempt &&
+                    this.config.auth.reauthenticateOnFailure !== false &&
+                    e.message.includes('401 Unauthorized')
+                  ) {
+                    this.log.warn(
+                      'Stored Alexa authentication was rejected. Starting automatic re-authentication.',
+                    )();
+                    fs.rmSync(this.cookiePersistPath, { force: true });
                     this.initAlexaRemote(callback, false);
                   } else {
                     callback(O.of(e));
@@ -225,13 +243,22 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
   }
 
   findDevices(): TE.TaskEither<AlexaError, SmartHomeDevice[]> {
+    const filterMode =
+      this.config.deviceFilterMode ??
+      (this.config.devices?.length
+        ? 'include'
+        : this.config.excludeDevices?.length
+        ? 'exclude'
+        : 'all');
     const deviceFilter = pipe(
-      O.fromNullable(this.config.devices),
+      O.fromNullable(filterMode === 'include' ? this.config.devices : []),
       O.map(A.map((d) => d.trim())),
       O.getOrElse(constant(new Array<string>())),
     );
     const excludeDevices = pipe(
-      O.fromNullable(this.config.excludeDevices),
+      O.fromNullable(
+        filterMode === 'exclude' ? this.config.excludeDevices : [],
+      ),
       O.map(A.map((d) => d.trim())),
       O.getOrElse(constant(new Array<string>())),
     );
@@ -295,6 +322,92 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
     );
   }
 
+  private initRoutines(): TE.TaskEither<AlexaError, RoutineAccessory[]> {
+    const configuredNames =
+      this.config.routines?.names?.map((name) => name.trim()) ?? [];
+
+    if (configuredNames.length === 0) {
+      return TE.right([]);
+    }
+
+    const executionDevice =
+      this.config.routines?.executionDevice?.trim() ||
+      Object.values(this.alexaRemote.serialNumbers).find(
+        ({ online, isControllable }) => online && isControllable,
+      )?.serialNumber ||
+      Object.values(this.alexaRemote.serialNumbers)[0]?.serialNumber;
+
+    if (!executionDevice) {
+      return TE.left(
+        new HttpError(
+          'No Echo device is available to execute configured Alexa routines.',
+        ),
+      );
+    }
+
+    return pipe(
+      this.alexaApi.getAutomationRoutines(),
+      TE.map((routines) => {
+        const selectedRoutines = routines.filter((routine) =>
+          configuredNames.includes(routine.name.trim()),
+        );
+        const discoveredNames = new Set(
+          selectedRoutines.map(({ name }) => name.trim()),
+        );
+
+        configuredNames
+          .filter((name) => !discoveredNames.has(name))
+          .forEach((name) =>
+            this.log.warn('Configured Alexa routine was not found:', name)(),
+          );
+
+        return selectedRoutines.map((routine) =>
+          this.createRoutineAccessory(routine, executionDevice),
+        );
+      }),
+    );
+  }
+
+  private createRoutineAccessory(
+    routine: AlexaRoutine,
+    executionDevice: string,
+  ): RoutineAccessory {
+    const uuid = this.HAP.uuid.generate(
+      `alexa-routine:${routine.automationId}`,
+    );
+    const cachedAccessory = this.cachedAccessories.find(
+      (accessory) => accessory.UUID === uuid,
+    );
+    const platformAcc =
+      cachedAccessory ?? new this.api.platformAccessory(routine.name, uuid);
+
+    platformAcc.context = {
+      ...platformAcc.context,
+      deviceId: `routine:${routine.automationId}`,
+      deviceType: 'ALEXA_ROUTINE',
+      homebridgeDeviceType: this.Service.Switch.UUID,
+    };
+
+    if (!cachedAccessory) {
+      this.api.registerPlatformAccessories(
+        settings.PLUGIN_NAME,
+        settings.PLATFORM_NAME,
+        [platformAcc],
+      );
+      this.log.info('Added Alexa routine:', routine.name)();
+    } else {
+      this.log.debug('Restored Alexa routine:', routine.name)();
+    }
+
+    return new RoutineAccessory(
+      this,
+      platformAcc,
+      routine,
+      executionDevice,
+      this.config.routines?.resetDelayMs ?? 500,
+    );
+  }
+
   initAccessories(
     device: SmartHomeDevice,
   ): IOEither<AlexaDeviceError, BaseAccessory[]> {
@@ -350,9 +463,10 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
           A.traverse(IOE.ApplicativeSeq)((hbAcc) => {
             const newDevice = {
               ...device,
-              displayName: getOrElse(
-                hbAcc.altDeviceName,
-                constant(device.displayName),
+              displayName: util.resolveHomeKitDeviceName(
+                device.displayName,
+                getOrElse(hbAcc.altDeviceName, constant(device.displayName)),
+                this.config.deviceAliases,
               ),
               supportedOperations: device.supportedOperations.filter((op) => {
                 const disabled =
@@ -409,6 +523,7 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
           device.displayName,
         ),
       ),
+      IOE.tapIO(() => this.logAccessoryMapping(device, hbDeviceType)),
       IOE.tapEither(() => {
         this.activeDeviceIds.push(device.id);
         return E.of(constVoid());
@@ -435,6 +550,7 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
         AccessoryFactory.createAccessory(this, platAcc, device, hbDeviceType),
       ),
       IOE.tapIO(() => this.log.info('Added accessory:', device.displayName)),
+      IOE.tapIO(() => this.logAccessoryMapping(device, hbDeviceType)),
       IOE.tapEither((acc) => {
         acc.isExternalAccessory
           ? this.api.publishExternalAccessories(settings.PLUGIN_NAME, [platAcc])
@@ -449,8 +565,33 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
     );
   }
 
+  private logAccessoryMapping(
+    device: SmartHomeDevice,
+    homeKitDeviceType: string,
+  ): IO.IO<void> {
+    const homeKitType =
+      [
+        [this.Service.Lightbulb.UUID, 'Lightbulb'],
+        [this.Service.Switch.UUID, 'Switch'],
+        [this.Service.Fanv2.UUID, 'Fan'],
+        [this.Service.LockMechanism.UUID, 'Lock'],
+        [this.Service.Outlet.UUID, 'Outlet'],
+        [this.Service.Thermostat.UUID, 'Thermostat'],
+        [this.Service.AirQualitySensor.UUID, 'AirQualitySensor'],
+        [this.Service.CarbonMonoxideSensor.UUID, 'CarbonMonoxideSensor'],
+        [this.Service.HumiditySensor.UUID, 'HumiditySensor'],
+        [this.Service.TemperatureSensor.UUID, 'TemperatureSensor'],
+      ].find(([uuid]) => uuid === homeKitDeviceType)?.[1] ?? 'Unknown';
+    const operations = device.supportedOperations.length
+      ? device.supportedOperations.join(', ')
+      : 'read-only';
+    return this.log.info(
+      `Mapped "${device.displayName}": Alexa ${device.deviceType} → HomeKit ${homeKitType} (operations: ${operations})`,
+    );
+  }
+
   private findStaleAccessories(
-    activeAccessories: BaseAccessory[],
+    activeAccessories: Array<{ platformAcc: PlatformAccessory }>,
   ): IO.IO<PlatformAccessory[]> {
     return pipe(
       IO.of(

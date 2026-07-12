@@ -4,3 +4,6 @@
 !README.md
 !package.json
 !config.schema.json
+!homebridge-ui/**
+!README.ja.md
+!ROADMAP.md

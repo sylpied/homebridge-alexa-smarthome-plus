@@ -7,6 +7,376 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-rc.1] - 2026-07-12
+
+### Added
+
+- Add a guided bilingual configuration UI with browser-based Amazon authentication.
+- Add Alexa device and routine discovery with search, bulk selection, aliases, and inline status.
+- Add verified HomeKit mappings for Alexa lights and smart locks.
+- Add release verification covering unit tests, linting, TypeScript builds, and npm package contents.
+
+### Changed
+
+- Refresh the English and Japanese documentation for the current setup workflow.
+- Build installable npm archives in tagged GitHub release workflows.
+
+### Security
+
+- Do not collect or save the user's Amazon username or password.
+- Persist only the Alexa session data required for subsequent authenticated access.
+
+## [0.9.6] - 2026-07-12
+
+### Fixed
+
+- Remove the remaining discovery success toast from the polling completion path.
+- Use only the inline completion message for discovery results.
+
+## [0.9.5] - 2026-07-12
+
+### Changed
+
+- Show discovery completion inline instead of using a global success toast.
+- Avoid duplicate notifications when Homebridge UI retains multiple custom-UI instances.
+
+## [0.9.4] - 2026-07-12
+
+### Fixed
+
+- Prevent overlapping discovery runs in the settings UI.
+- Disable the refresh button while discovery is active.
+- Rate-limit discovery success notifications to one per 30 seconds.
+
+## [0.9.3] - 2026-07-12
+
+### Fixed
+
+- Do not treat routine cookie refreshes during discovery as a new Alexa login.
+- Prevent the authentication event handler from starting a second discovery job.
+- Eliminate duplicate discovery completion notifications at their source.
+
+## [0.9.2] - 2026-07-12
+
+### Fixed
+
+- Deduplicate discovery completion received through the event and JSON fallback paths.
+- Show the successful discovery notification only once per completed retrieval.
+- Include an initial discovery result file to avoid harmless asset-not-found log messages.
+
+## [0.9.1] - 2026-07-12
+
+### Fixed
+
+- Update unit-test device fixtures, cache states, and Alexa wrapper calls to the current APIs.
+- Separate environment-dependent integration tests from the default unit-test run.
+- Accept the documented per-device disabled-operations setting during configuration validation.
+
+### Tests
+
+- Restore a clean default test run with 31 passing tests across 10 suites.
+
+## [0.9.0] - 2026-07-12
+
+### Added
+
+- Log the Alexa-to-HomeKit type mapping and supported operations for every published device.
+- Log successful power writes for lights, outlets, switches, and fans when debug logging is enabled.
+- Keep diagnostic logs free of authentication data and Alexa internal identifiers.
+
+## [0.8.3] - 2026-07-12
+
+### Fixed
+
+- Publish discovery results as an atomic static JSON file read directly by the settings UI.
+- Bypass unreliable Homebridge UI 5.24 custom-server response forwarding for discovery data.
+- Reject stale cached discovery results using completion timestamps.
+
+## [0.8.2] - 2026-07-12
+
+### Fixed
+
+- Exclude large Alexa internal identifiers from custom UI discovery responses.
+- Send only device names/types and routine names required by the settings UI.
+- Deliver completed discovery through both an event and status polling fallback.
+
+## [0.8.1] - 2026-07-12
+
+### Fixed
+
+- Start polling without waiting for Homebridge UI to resolve the discovery-start request.
+- Continue polling after temporary status request failures.
+- Report discovery-list rendering errors separately from Alexa request delays.
+
+## [0.8.0] - 2026-07-12
+
+### Added
+
+- Search discovered Alexa devices and routines by name or type.
+- Select or clear all currently visible discovery results.
+- Show selected counts and Alexa device-type badges.
+
+## [0.7.16] - 2026-07-12
+
+### Fixed
+
+- Defer Alexa connection startup until after the custom UI status response has been returned.
+- Allow result polling to begin while Alexa discovery runs in the background.
+
+## [0.7.15] - 2026-07-12
+
+### Fixed
+
+- Start and monitor Alexa discovery through the proven authentication-status route.
+- Avoid custom discovery routes whose responses are not forwarded by Homebridge UI 5.24.
+
+## [0.7.14] - 2026-07-12
+
+### Fixed
+
+- Rename the custom discovery-start route to avoid a Homebridge UI route-name conflict.
+- Allow discovery startup to return before authentication-status polling begins.
+
+## [0.7.13] - 2026-07-12
+
+### Changed
+
+- Start discovery in the background and return a small response immediately.
+- Retrieve discovery results through the proven authentication-status route.
+- Stop automatic Alexa discovery when merely opening the settings screen.
+
+## [0.7.12] - 2026-07-12
+
+### Changed
+
+- Return completed discovery results directly from a single bounded request.
+- Remove discovery-result polling to avoid duplicate discovery across cached UI versions.
+- Bound server-side waiting to eight seconds and keep the settings screen interactive.
+
+## [0.7.11] - 2026-07-12
+
+### Fixed
+
+- Use a non-overlapping custom UI route for discovery results to avoid Homebridge UI 5.24 prefix matching.
+- Stop completed discovery from being restarted by result polling.
+
+## [0.7.10] - 2026-07-12
+
+### Fixed
+
+- Register the discovery status route before the discovery route so status polling no longer starts discovery repeatedly.
+- Display the completed Alexa discovery result in the settings screen.
+
+## [0.7.9] - 2026-07-12
+
+### Fixed
+
+- Run Alexa discovery in the background so Homebridge UI requests return immediately.
+- Poll discovery status without blocking the settings screen.
+- Suppress the red server-timeout notification while discovery continues.
+
+## [0.7.8] - 2026-07-12
+
+### Changed
+
+- Keep the settings page interactive during Alexa discovery instead of showing a full-screen spinner.
+- End the foreground wait after 15 seconds and show a non-blocking inline status message.
+- Add stage-based server logs for authentication initialization and Alexa device/routine retrieval.
+
+## [0.7.7] - 2026-07-12
+
+### Fixed
+
+- Allow up to 60 seconds for Alexa device and routine discovery instead of applying the five-second settings request timeout.
+- Show a clear progress message while Alexa discovery is running.
+
+## [0.7.6] - 2026-07-12
+
+### Changed
+
+- Keep Alexa device discovery available even when the authentication-status response is not reflected by Homebridge UI.
+- Infer an existing authenticated setup from cached Alexa accessories as a UI fallback; discovery still verifies the live saved session.
+- Log the server-side authentication decision and persistence path without exposing credentials.
+
+## [0.7.5] - 2026-07-12
+
+### Added
+
+- Poll authentication status after browser login for up to two minutes.
+- Automatically change the settings badge to connected and discover Alexa devices and routines once the saved session becomes available.
+
+## [0.7.4] - 2026-07-12
+
+### Changed
+
+- Add a clear, responsive Japanese or English authentication-complete page.
+- Tell users to close the Amazon login page and return to Homebridge for device and routine discovery.
+
+## [0.7.3] - 2026-07-12
+
+### Fixed
+
+- Use Amazon's global device-auth endpoint for browser token registration while retaining the configured regional Alexa API marketplace.
+- Clear stale proxy registration state before a new login, avoiding redirects to the invalid `amazon.co.jp/ap/maplanding` page.
+
+## [0.7.2] - 2026-07-12
+
+### Fixed
+
+- Reveal the deterministic local login URL after a short proxy startup grace period, even when Homebridge UI does not forward the custom-server response or event.
+
+## [0.7.1] - 2026-07-12
+
+### Fixed
+
+- Return the Amazon login URL in the `/auth/start` response only after the proxy is listening.
+- Update the settings page directly from the request response instead of depending solely on a custom pushed event.
+
+## [0.7.0] - 2026-07-12
+
+### Changed
+
+- Replace indirect `alexa-remote2` authentication startup with the browser-proxy API provided directly by `alexa-cookie2`.
+- Separate proxy readiness, browser login completion, session persistence, and Alexa discovery into distinct steps.
+- Persist only the completed Alexa session data after successful browser authentication.
+
+## [0.6.9] - 2026-07-12
+
+### Fixed
+
+- Ignore saved Alexa session data when the user explicitly starts a new browser authentication.
+- Stop any previous proxy attempt before starting a new one.
+- Fail proxy startup after ten seconds with a visible error instead of remaining in the starting state indefinitely.
+
+## [0.6.8] - 2026-07-12
+
+### Fixed
+
+- Keep the Amazon login link hidden while the local authentication proxy is starting.
+- Enable the login link only after the proxy reports that its listening socket is ready.
+- Show proxy startup failures directly below the authentication controls.
+
+## [0.6.7] - 2026-07-12
+
+### Fixed
+
+- Show the deterministic local Amazon login link immediately when authentication is requested.
+- Start the authentication proxy without blocking the settings page on the server response or login lifecycle.
+
+## [0.6.6] - 2026-07-12
+
+### Changed
+
+- Add a clear notice that Amazon user IDs and passwords are neither requested nor stored by the plugin.
+- Hide the redundant successful-validation banner; validation is now only shown when required authentication host settings are incomplete.
+
+## [0.6.5] - 2026-07-12
+
+### Fixed
+
+- Return the local Alexa authentication URL immediately while the proxy starts in the background.
+- Explicitly enable proxy-only browser authentication without storing an Amazon password.
+- Show an explicit Amazon login link instead of relying on an async popup, avoiding browser popup blocking.
+
+## [0.6.4] - 2026-07-12
+
+### Fixed
+
+- Render the settings form before loading optional authentication and accessory data.
+- Add timeouts and safe fallbacks for Homebridge configuration, localization, cached accessory, and authentication requests.
+- Show an immediate loading message so UI initialization can be distinguished from an unloaded script.
+
+## [0.6.3] - 2026-07-12
+
+### Fixed
+
+- Add versioned URLs to the custom UI JavaScript, stylesheet, and translations so Homebridge browsers do not reuse a stale settings bundle after plugin upgrades.
+
+## [0.6.2] - 2026-07-12
+
+### Fixed
+
+- Add a guarded delayed initialization fallback for Homebridge UI versions where the ready event has already fired before the custom script attaches its listener.
+
+## [0.6.1] - 2026-07-12
+
+### Fixed
+
+- Wait for the Homebridge custom UI ready event before loading configuration, preventing an empty settings page.
+- Display initialization errors inside the settings page instead of leaving it blank.
+
+## [0.6.0] - 2026-07-12
+
+### Added
+
+- Authentication-first setup directly from the Homebridge settings page.
+- Live Alexa device and routine discovery after authentication.
+- Checkbox selection of discovered devices and routines without manually entering names.
+- Authentication status, refresh, and disconnect controls.
+
+### Security
+
+- Amazon passwords are never requested or stored. Only Alexa session and refresh data are persisted with owner-only file permissions.
+
+## [0.5.0] - 2026-07-12
+
+### Added
+
+- Autocomplete suggestions from cached Homebridge accessories for device names.
+- Autocomplete suggestions for previously registered Alexa routine accessories.
+- Graceful fallback to manual input when cached accessory access is unavailable.
+
+## [0.4.1] - 2026-07-12
+
+### Changed
+
+- Removed numeric prefixes from all settings section headings.
+
+## [0.4.0] - 2026-07-12
+
+### Added
+
+- Custom Homebridge settings UI with automatic Japanese/English selection.
+- Manual settings-language override: Automatic, 日本語, or English.
+- English fallback for unsupported Homebridge UI languages.
+- Responsive guided form for desktop and mobile screens.
+
+### Changed
+
+- Settings are updated through the official Homebridge custom UI API.
+- Alexa authentication language remains independent from the settings UI language.
+
+## [0.3.0] - 2026-07-12
+
+### Changed
+
+- Reorganised the standard Homebridge settings UI into four guided sections.
+- Added a single device publication mode instead of showing include and exclude lists together.
+- Moved authentication refresh, cache, disabled operations, and debug settings into a collapsed advanced section.
+- Routine execution options are shown only after at least one routine is configured.
+
+## [0.2.0] - 2026-07-12
+
+### Added
+
+- Selected Alexa routines can be exposed as momentary HomeKit switches.
+- Automatic selection of an online controllable Echo as the execution context.
+- Optional explicit Echo name or serial number for routine execution.
+- Configurable delay before a routine switch returns to OFF.
+
+## [0.1.0] - 2026-07-12
+
+### Added
+
+- Independent `homebridge-alexa-smarthome-plus` package and platform identity.
+- Automatic browser re-authentication after a saved session is rejected.
+- Device aliases for using different names in Alexa and HomeKit.
+- Japanese setup documentation and a staged feature roadmap.
+
+### Based on
+
+- `homebridge-alexa-smarthome` 2.5.2, retained under its MIT License.
+
 ## [2.5.2] - 2026-07-05
 
 ### Added
@@ -34,16 +404,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The plugin configuration now supports a `disabledOperations` setting to disable operations for a specific device. For devices that create multiple HomeKit accessories (such as air quality monitors creating separate temperature and humidity sensors), users must use the parent Alexa device name in the disabledOperations configuration, not the individual sensor names. For example, if "My Sensor" creates "My Sensor temperature" and "My Sensor humidity", the user should configure `"deviceName": "My Sensor"` (not "My Sensor temperature"). Full config example:
 
-    ```json
-    {
-        "disabledOperations": [
-            {
-                "deviceName": "My Light",
-                "operations": "setBrightness, setColor, setColorTemperature"
-            }
-        ]
-    }
-    ```
+  ```json
+  {
+    "disabledOperations": [
+      {
+        "deviceName": "My Light",
+        "operations": "setBrightness, setColor, setColorTemperature"
+      }
+    ]
+  }
+  ```
 
 ## [2.4.0] - 2025-11-23
 

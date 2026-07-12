@@ -4,6 +4,8 @@ import { HomebridgeAPI } from 'homebridge/lib/api';
 import { Logger } from 'homebridge/lib/logger';
 import { AlexaPlatformConfig } from '../src/domain/homebridge';
 import { AlexaSmartHomePlatform } from '../src/platform';
+import { SmartHomeDevice } from '../src/domain/alexa/get-devices';
+import DeviceStore from '../src/store/device-store';
 
 jest.mock('homebridge/lib/logger', () => ({
   Logger: jest.fn().mockImplementation(() => ({
@@ -27,21 +29,35 @@ global.TEST_UUID = 'd3588548-bbbb-4c95-b60d-57fea062ca5b';
 global.createPlatform = (): AlexaSmartHomePlatform => {
   const api = new HomebridgeAPI();
   api.hap.uuid.generate = constant(TEST_UUID);
-  return new AlexaSmartHomePlatform(
+  const config = global.createPlatformConfig();
+  const platform = new AlexaSmartHomePlatform(
     global.MockLogger,
-    global.createPlatformConfig(),
+    config,
     api,
   );
+  if (!(platform as any).deviceStore) {
+    (platform as any).deviceStore = new DeviceStore(config.performance);
+  }
+  return platform;
 };
 
 global.createPlatformConfig = (): AlexaPlatformConfig => ({
-  platform: 'HomebridgeAlexaSmartHome',
+  platform: 'AlexaSmartHomePlus',
+  uiLanguage: 'auto',
+  deviceFilterMode: 'all',
   devices: [],
   excludeDevices: [],
+  deviceAliases: [],
+  routines: {
+    names: [],
+    executionDevice: undefined,
+    resetDelayMs: 500,
+  },
   amazonDomain: 'amazon.com',
   language: 'en-US',
   auth: {
     refreshInterval: 0,
+    reauthenticateOnFailure: true,
     proxy: {
       clientHost: 'localhost',
       port: 2345,
@@ -49,9 +65,24 @@ global.createPlatformConfig = (): AlexaPlatformConfig => ({
   },
   performance: {
     cacheTTL: 30,
-    backgroundRefresh: false,
   },
+  disabledOperations: [],
   debug: true,
+});
+
+global.createSmartHomeDevice = (
+  overrides: Partial<SmartHomeDevice> = {},
+): SmartHomeDevice => ({
+  id: 'entity:test-device',
+  endpointId: 'endpoint:test-device',
+  displayName: 'Test device',
+  supportedOperations: ['turnOn', 'turnOff'],
+  enabled: true,
+  deviceType: 'SWITCH',
+  serialNumber: 'TEST-SERIAL',
+  model: 'Test Model',
+  manufacturer: 'Test Manufacturer',
+  ...overrides,
 });
 
 declare global {
@@ -59,4 +90,7 @@ declare global {
   var TEST_UUID: string;
   var createPlatform: () => AlexaSmartHomePlatform;
   var createPlatformConfig: () => AlexaPlatformConfig;
+  var createSmartHomeDevice: (
+    overrides?: Partial<SmartHomeDevice>,
+  ) => SmartHomeDevice;
 }

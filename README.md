@@ -1,156 +1,108 @@
-<p align="center">
-  <img alt="homebridge-logo" src="https://raw.githubusercontent.com/homebridge/branding/master/logos/homebridge-wordmark-logo-vertical.png" width="150">
-</p>
+# Alexa Smart Home Plus
 
-<p align="center">
-  <a href="https://github.com/joeyhage/homebridge-alexa-smarthome/blob/main/LICENSE">
-    <img alt="License" src="https://img.shields.io/github/license/joeyhage/homebridge-alexa-smarthome?cacheSeconds=3600&logo=github"></a>
-  <a href="https://github.com/joeyhage/homebridge-alexa-smarthome/actions/workflows/build.yml?query=branch%3Amain">
-    <img alt="Build, lint, and test" src="https://img.shields.io/github/actions/workflow/status/joeyhage/homebridge-alexa-smarthome/build.yml?cacheSeconds=3600&logo=github"></a>
-</p>
-<p align="center">
-  <a href="https://www.npmjs.com/package/homebridge-alexa-smarthome">
-    <img alt="npm version" src="https://img.shields.io/npm/v/homebridge-alexa-smarthome?cacheSeconds=3600&&label=version&logo=npm"></a>
-  <a href="https://www.npmjs.com/package/homebridge-alexa-smarthome">
-    <img alt="npm downloads" src="https://img.shields.io/npm/dt/homebridge-alexa-smarthome?cacheSeconds=3600&logo=npm"></a>
-</p>
-<p align="center">
-  <a href="https://github.com/homebridge/homebridge/wiki/Verified-Plugins">
-    <img alt="verified-by-homebridge" src="https://badgen.net/badge/homebridge/verified/purple"></a>
-  <a href="https://discord.com/channels/432663330281226270/1144780172084654190">
-    <img alt="Discord" src="https://img.shields.io/discord/432663330281226270?cacheSeconds=3600&logo=discord&color=728ED5&label=discord-channel"></a>
-</p>
+Alexa Smart Home Plus lets you choose devices already connected to Alexa and bring them into Apple Home through Homebridge.
 
-# Homebridge Alexa Smart Home
+Amazon sign-in, discovery, selection, and naming are handled in the Homebridge settings screen, so the initial setup does not require hand-editing JSON.
 
-This plugin enables smart home device integration between HomeKit and Alexa which allows HomeKit/Siri to control smart home devices that are connected via Amazon Alexa.
+[日本語](README.ja.md) | [Roadmap](ROADMAP.md)
 
-This plugin **does not** allow Alexa to control devices in HomeKit. For that, please see the [Homebridge Alexa](https://github.com/NorthernMan54/homebridge-alexa) plugin.
+## What the settings screen does
 
-## Table of Contents
+After connecting an Amazon account, the plugin retrieves Alexa devices and routines. The result can be searched, filtered visually by type, and reduced to only the items that should appear in HomeKit.
 
-- [Compatibility](#compatibility)
-- [Currently supported devices](#currently-supported-devices)
-- [Features](#features)
-  - [Air quality monitors](#air-quality-monitors)
-- [Initial configuration](#initial-configuration)
-- [Common issues](#common-issues)
-- [Support](#support)
-- [Contributing](#contributing)
-- [Long-term support](#long-term-support)
-- [Thanks](#thanks)
-- [Disclaimer](#disclaimer)
+- Guided browser authentication
+- Device and routine discovery with manual refresh
+- Search, type labels, and bulk selection of visible results
+- HomeKit-only aliases that do not rename Alexa devices
+- Japanese and English UI with automatic language selection
+- Inline authentication and discovery progress
+- Alexa routines exposed as momentary HomeKit switches
+- An on/off fallback for otherwise unknown Alexa device types
 
-## Compatibility
+## First-run journey
 
-Compatibility is not guaranteed with HOOBS and I am unable to provide support for HOOBS users since I do not use HOOBS.
+### Connect Amazon
 
-Node.js versions supported: 16.x, 18.x, 20.x
+Open the plugin settings in Homebridge UI. Select the Amazon marketplace used by the Alexa account and provide a Homebridge host that the current browser can reach. The authentication proxy port must not be used by another service.
 
-## Currently supported devices
+Select **Connect to Alexa** and complete Amazon's sign-in flow, including MFA, CAPTCHA, or device approval when requested. When the completion page appears, close it and return to the Homebridge settings window.
 
-- Lightbulbs
-- Switches
-  - HomeKit switches do not support brightness so any switches you have that support brightness will appear in HomeKit as Lightbulbs.
-- Fans
-- Outlets + smart plugs
-- Thermostats
-- Locks
-- Air Quality Monitors
-  - Only confirmed to work with Amazon Air Quality Monitor. Please report an issue if it doesn't work with your air quality monitor.
-- Device types not listed above that support on/off will be added as switches. For example:
-  - Air fresheners
-  - Vacuum cleaners
-  - Game consoles
-- [Request / vote](https://homebridge-alexa-smarthome.canny.io/feedback?selectedCategory=supported-device-types) on device types you would like to see supported.
+### Choose what HomeKit receives
 
-## Features
+Select **Refresh devices** to retrieve devices and routines. Discovery runs without locking the rest of the form; the list updates when the request completes.
 
-- Devices already linked to your Alexa account can be integrated with HomeKit automatically.
-- Only Amazon credentials needed to configure this plugin rather than credentials for all your devices.
-- This plugin does not store your Amazon username or password. Instead, it uses session cookies that are valid for up to 14 days. This plugin will automatically refresh the session cookie before it expires.
+Choose the items to publish and optionally assign HomeKit-specific names.
 
-### Air quality monitors
+### Apply the selection
 
-All of the following are supported depending on what your device measures:
+Save the configuration and restart the Child Bridge. The chosen accessories will then be published to Apple Home.
 
-- Air quality score (Excellent / Fair / Poor)
-- Particulate matter density (PM2.5)
-- VOC Density
-- Carbon monoxide levels
-- Relative humidity percent
-- Temperature
+## Alexa-to-HomeKit translation
 
-When you first add an Air Quality Monitor to HomeKit, the above measurements may appear in the Default Room but can be assigned to any room you choose.
+The plugin evaluates both the Alexa device type and the operations reported for that endpoint.
 
-## Initial configuration
+| Alexa endpoint | HomeKit presentation | Typical controls |
+|---|---|---|
+| Light | Lightbulb | Power, brightness, color temperature, color when available |
+| Smart lock | Lock | Lock, unlock, current state |
+| Outlet or plug | Outlet | Power |
+| Switch | Switch or Lightbulb | Power, brightness when available |
+| Fan | Fan | Power and available speed controls |
+| Thermostat | Thermostat | Temperature and operating mode |
+| Temperature, humidity, air quality, or CO endpoint | Sensor service | Current readings |
+| Alexa routine | Momentary switch | Run routine |
 
-The first time this plugin starts, you will need to authenticate using your Amazon Alexa account. Please follow these steps in order - screenshots included.
+Alexa integrations can report different capabilities for the same physical product, so available HomeKit controls may vary by account.
 
-1. Verify that your plugin configuration is correct. Specifically, the proxy `clientHost` and `port`. The `clientHost` should be the same host you use to access homebridge. For example, if you access homebridge via the url `http://my-homebridge-server.local:8581` then `clientHost` should be `my-homebridge-server.local`. The `port` should be a different value from homebridge (not 8581). Restart Homebridge if you made any changes to the settings.
-   1. It is highly recommended to explicitly provide in the plugin settings the device names you wish to use with this plugin. The plugin performs much better this way.
-   2. ![config screenshot](./docs/img/1-config.png)
-2. Download the Alexa app onto a device of your choosing (smartphone, tablet, etc) and sign in using the Amazon account your devices are linked to. Confirm the `amazonDomain` plugin setting matches what you see in the Alexa app. Go to Settings -> About, scroll to the bottom, and look for Host Name. The Host Names you see should end with the `amazonDomain` you choose in the plugin settings, it will not match exactly.
-   1. <img alt="Alexa app settings" src="./docs/img/1a-alexa-app.jpeg" width="60%" />
-   2. <img alt="Alexa app host" src="./docs/img/1b-host.jpeg"/>
-3. **This plugin may not work and support or help troubleshooting will not be provided** if you do not use multi-factor authentication / two-step verification or if you use SMS for the verification code. Again, SMS two step verification will **not** work. Please download an authenticator app such as AWS Virtual MFA, Google Authenticator, Microsoft Authenticator and follow the instructions to enable two step verification on Amazon's website.
-4. Check the homebridge logs for an error that you must manually open the url to authenticate.
-   1. ![failed to initialize screenshot](./docs/img/2-failed-to-initialize.png)
-5. Visit the url in your browser to open a login screen. If you open the url from a mobile device the Alexa App is installed on, it may not work because Amazon might open the Alexa App. It is recommended to use a device, preferably a computer, the Alexa App is not installed on. When the page loads, it is a real login screen proxied so the plugin can capture the session cookie. The username/password are not stored by the plugin.
-   1. ![login screenshot](./docs/img/3-alexa-login.png)
-6. Enter your MFA code if you have MFA enabled on your Amazon Alexa account. Again, the plugin does not store this value.
-   1. ![mfa screenshot](./docs/img/4-alexa-mfa.png)
-7. If successful, you should see a message that the Amazon Alexa cookie was successfully retrieved. If you see a 404 page, return to step 3 and start over.
-   1. ![login successful screenshot](./docs/img/5-login-success.png)
-8. The homebridge logs will also show a message such as "Successfully authenticated Alexa account".
-   1. ![authentication successful screenshot](./docs/img/6-homebridge-success.png)
+### Hardware paths verified during development
 
-## Common issues
+- Qrio Lock Tokyo: lock, unlock, and current state
+- Alexa-connected light: power, brightness, color temperature, and current state
 
-<details>
-  <summary>Alexa login errors or <code>Failed to initialize connection to Alexa.`</code></summary>
-  <ol>
-    <li>Please ensure you have the Alexa app installed on your device (iPhone, iPad, etc).</li>
-    <li>Please download an authenticator app such as AWS Virtual MFA, Google Authenticator, Microsoft Authenticator and follow the instructions to enable two step verification on Amazon's website. SMS two-step verification does not work with this plugin.</li>
-    <li>Try using a computer to access the proxy url</li>
-    <li>See <a href="https://github.com/Apollon77/alexa-remote#troubleshooting">Troubleshooting</a> for the Alexa Remote project, which this plugin relies on.</li>
-    <li>Repeat <a href="#initial-configuration">initial configuration</a> steps again.</li>
-    <li>Delete the <code>persist/.homebridge-alexa-smarthome</code> file in your homebridge installation directory and then restart Homebridge.</li>
-    <li>Try an incognito window with Javascript disabled. <a href="https://github.com/Apollon77/ioBroker.alexa2#problems-with-cookie-determination-via-e-mailpassword">Detailed instructions</a></li>
-  </ol>
-</details>
-<details>
-  <summary><code>This plugin slows down Homebridge</code></summary>
-  Please update the Performance section of the plugin settings. More information can be found on the plugin settings page.
-</details>
-<details>
-  <summary>I can't find my device in HomeKit/Apple Home app.</summary>
-  <ul>
-    <li>Please check the Default Room for the device. Air quality, humidity, and temperature sensors appear as statuses at the top of the room, not as device tiles.</li>
-    <li>Double check the name of the device in the Alexa app matches the name specified in the plugin settings. Spaces, uppercase, and lowercase matter.</li>
-  </ul>
-</details>
+## Credentials and stored data
 
-## Support
+There are no plugin fields for an Amazon username, password, or MFA code. Those values are entered only into the Amazon-hosted sign-in flow and are not saved by this plugin.
 
-Please visit the [Canny feedback board](https://homebridge-alexa-smarthome.canny.io/feedback) first to see if your issue or request is currently being worked on. You can also suggest new features and vote on features requested by others.
+After authentication, the Alexa session material required for later requests is stored under Homebridge's `persist` directory. The plugin refreshes that session while possible and asks for browser authentication again when user interaction is required.
 
-If you run into issues or you need help please use the [issues template](https://github.com/joeyhage/homebridge-alexa-smarthome/issues/new/choose). Fill all the relevant sections and submit your issue. It is important that you use the templates because I will automatically be assigned to your issue and I will receive an email. If you use the blank template without assigning me, I will most likely miss the Github notification.
+## Where to look when something fails
 
-## Contributing
+### The Amazon page does not open
 
-Please see [CONTRIBUTING.md](./CONTRIBUTING.md) and [PULL_REQUEST_TEMPLATE.md](./.github/PULL_REQUEST_TEMPLATE.md)
+- Confirm that the browser can reach the configured Homebridge host.
+- Choose a proxy port that is not already occupied.
+- For a remote host or container, use an address reachable from the browser rather than a loopback-only address.
 
-## Long-term support
+### Discovery is slow or returns no entries
 
-Please consider supporting the development of this plugin by sponsoring me. Sponsorship will encourage me to continue improving this plugin, support more devices, adapt to changes in the Alexa API, and fuel my late-night coding sessions. :coffee:
+- Confirm that the device is controllable in the Alexa app.
+- Check that the settings screen reports an authenticated account.
+- Discovery does not block form editing; wait briefly and retry **Refresh devices** if necessary.
 
-## Thanks
+### A selected item is missing from Apple Home
 
-A huge thanks is due to Apollon77 for maintaining alexa-remote2, alexa-cookie2, and ioBroker.alexa2. This plugin is made possible due to those projects.
+- Confirm that it remains selected before saving.
+- Restart the Alexa Smart Home Plus Child Bridge after saving.
+- Some sensor services appear in a room's status area rather than as accessory tiles.
 
-## Disclaimer
+## Runtime support
 
-- I am not affiliated with Amazon nor any of the device brands and this plugin is a personal project that I maintain in my free time
-- Use this plugin entirely at your own risk
-- Please see license for more information
+- Homebridge 1.x and 2.x
+- Node.js 18, 20, 22, and 24
+- Homebridge Config UI X is recommended for first-run setup
+
+## Contributor checks
+
+```bash
+npm ci
+npm run verify
+npm pack --dry-run --ignore-scripts
+```
+
+`verify` runs unit tests, linting, and the production TypeScript build. Tests that require a real Amazon account are kept separate from the normal unit-test run.
+
+## Project lineage and limitations
+
+Some dependencies communicate through Amazon interfaces that are not public APIs. Authentication or device control may therefore need maintenance after Amazon-side changes. This project is not an Amazon product and is not affiliated with any device manufacturer.
+
+The codebase began from the MIT-licensed `joeyhage/homebridge-alexa-smarthome` project and now uses its own package name, platform identity, configuration UI, authentication journey, and device-selection workflow. Its README text is independently written rather than reproduced from the upstream project. Publishing the same Alexa endpoint through both plugins will produce duplicate HomeKit accessories.

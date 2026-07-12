@@ -10,9 +10,22 @@ export interface HomebridgeAccessoryInfo {
 }
 
 export interface AlexaPlatformConfig extends PlatformConfig {
-  platform: 'HomebridgeAlexaSmartHome';
+  platform: 'AlexaSmartHomePlus';
+  uiLanguage: Nullable<'auto' | 'ja' | 'en'>;
+  deviceFilterMode: Nullable<'all' | 'include' | 'exclude'>;
   devices: Nullable<string[]>;
   excludeDevices: Nullable<string[]>;
+  deviceAliases: Nullable<
+    Array<{
+      alexaName: string;
+      homeKitName: string;
+    }>
+  >;
+  routines: Nullable<{
+    names: Nullable<string[]>;
+    executionDevice: Nullable<string>;
+    resetDelayMs: Nullable<number>;
+  }>;
   amazonDomain: Nullable<AmazonDomain>;
   language: Nullable<string>;
   auth: {
@@ -21,6 +34,7 @@ export interface AlexaPlatformConfig extends PlatformConfig {
       port: number;
     };
     refreshInterval: Nullable<number>;
+    reauthenticateOnFailure: Nullable<boolean>;
   };
   performance: Nullable<{
     cacheTTL: Nullable<number>;

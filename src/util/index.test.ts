@@ -4,7 +4,7 @@ describe('validateConfig', () => {
   test('should return true given minimal config', () => {
     // given
     const config = {
-      platform: 'HomebridgeAlexaSmartHome',
+      platform: 'AlexaSmartHomePlus',
       auth: {
         proxy: { clientHost: '127.0.0.1', port: 1111 },
       },
@@ -20,14 +20,18 @@ describe('validateConfig', () => {
   test('should return true given full config', () => {
     // given
     const config = {
-      platform: 'HomebridgeAlexaSmartHome',
+      platform: 'AlexaSmartHomePlus',
       amazonDomain: 'amazon.com',
       auth: {
         refreshInterval: 4,
+        reauthenticateOnFailure: true,
         proxy: { clientHost: '127.0.0.1', port: 1111 },
       },
       language: 'en-US',
       devices: ['test'],
+      deviceAliases: [
+        { alexaName: 'test', homeKitName: 'Test HomeKit Device' },
+      ],
       debug: true,
     };
 
@@ -98,5 +102,23 @@ describe('isValidAuthentication', () => {
 
     // then
     expect(actual).toBe(false);
+  });
+});
+
+describe('resolveHomeKitDeviceName', () => {
+  test('uses the configured alias', () => {
+    expect(
+      util.resolveHomeKitDeviceName('Living Room', 'Living Room', [
+        { alexaName: 'Living Room', homeKitName: 'Lounge' },
+      ]),
+    ).toBe('Lounge');
+  });
+
+  test('preserves generated sensor suffixes', () => {
+    expect(
+      util.resolveHomeKitDeviceName('Living Room', 'Living Room temperature', [
+        { alexaName: 'Living Room', homeKitName: 'Lounge' },
+      ]),
+    ).toBe('Lounge temperature');
   });
 });

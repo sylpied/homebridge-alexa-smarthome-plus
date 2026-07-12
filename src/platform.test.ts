@@ -7,17 +7,12 @@ import { AlexaSmartHomePlatform } from './platform';
 test('should not initialize devices with invalid ids', async () => {
   // given
   const platform = getPlatform();
-  const device = {
+  const device = global.createSmartHomeDevice({
     id: '123',
     displayName: 'test light',
-    description: 'test',
     supportedOperations: ['turnOff', 'turnOn', 'setBrightness'],
-    providerData: {
-      enabled: true,
-      categoryType: 'APPLIANCE',
-      deviceType: 'LIGHT',
-    },
-  };
+    deviceType: 'LIGHT',
+  });
 
   // when
   const actual = platform.initAccessories(device)();

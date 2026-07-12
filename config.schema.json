@@ -1,16 +1,40 @@
 {
-  "pluginAlias": "HomebridgeAlexaSmartHome",
+  "pluginAlias": "AlexaSmartHomePlus",
   "pluginType": "platform",
   "singular": true,
+  "customUi": true,
+  "customUiPath": "./homebridge-ui",
+  "headerDisplay": "<h3>Alexa Smart Home Plus</h3><p>Amazon認証、公開する機器、定型アクションを順番に設定します。通常は詳細設定を変更する必要はありません。</p>",
   "schema": {
     "type": "object",
     "properties": {
       "name": {
         "type": "string",
-        "default": "HomebridgeAlexaSmartHome",
+        "default": "AlexaSmartHomePlus",
         "condition": {
           "functionBody": "return false;"
         }
+      },
+      "uiLanguage": {
+        "title": "Settings language",
+        "type": "string",
+        "default": "auto",
+        "oneOf": [
+          { "title": "Automatic", "enum": ["auto"] },
+          { "title": "日本語", "enum": ["ja"] },
+          { "title": "English", "enum": ["en"] }
+        ]
+      },
+      "deviceFilterMode": {
+        "title": "公開する機器",
+        "description": "すべて公開するか、機器名で絞り込むかを選択します。",
+        "type": "string",
+        "default": "all",
+        "oneOf": [
+          { "title": "対応機器をすべて公開", "enum": ["all"] },
+          { "title": "指定した機器だけ公開", "enum": ["include"] },
+          { "title": "指定した機器を除外", "enum": ["exclude"] }
+        ]
       },
       "devices": {
         "title": "Include device names",
@@ -19,7 +43,7 @@
         "uniqueItems": true,
         "default": [],
         "condition": {
-          "functionBody": "return model.excludeDevices === undefined;"
+          "functionBody": "return model.deviceFilterMode === 'include';"
         },
         "items": {
           "title": "Device name",
@@ -33,11 +57,66 @@
         "uniqueItems": true,
         "default": [],
         "condition": {
-          "functionBody": "return model.devices === undefined;"
+          "functionBody": "return model.deviceFilterMode === 'exclude';"
         },
         "items": {
           "title": "Device name",
           "type": "string"
+        }
+      },
+      "deviceAliases": {
+        "title": "HomeKit device names",
+        "description": "Optionally give Alexa devices different names in HomeKit. Alexa device names must match exactly.",
+        "type": "array",
+        "default": [],
+        "items": {
+          "title": "Device name mapping",
+          "type": "object",
+          "properties": {
+            "alexaName": {
+              "title": "Alexa device name",
+              "type": "string",
+              "required": true
+            },
+            "homeKitName": {
+              "title": "HomeKit device name",
+              "type": "string",
+              "required": true
+            }
+          }
+        }
+      },
+      "routines": {
+        "title": "Alexa routines",
+        "description": "Expose selected Alexa routines as momentary HomeKit switches.",
+        "type": "object",
+        "required": false,
+        "properties": {
+          "names": {
+            "title": "Routine names",
+            "description": "Alexa routine names to expose. Names must match exactly. Leave empty to disable routine accessories.",
+            "type": "array",
+            "uniqueItems": true,
+            "default": [],
+            "items": {
+              "title": "Routine name",
+              "type": "string"
+            }
+          },
+          "executionDevice": {
+            "title": "Execution Echo device",
+            "description": "Optional Echo device name or serial number used as the routine execution context. The first available Echo is used when omitted.",
+            "type": "string",
+            "required": false
+          },
+          "resetDelayMs": {
+            "title": "Switch reset delay",
+            "description": "Return the HomeKit routine switch to OFF after this many milliseconds.",
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 10000,
+            "default": 500
+          }
         }
       },
       "amazonDomain": {
@@ -81,6 +160,13 @@
             "type": "number",
             "required": false,
             "default": 4
+          },
+          "reauthenticateOnFailure": {
+            "title": "Automatically recover Alexa authentication",
+            "description": "If Amazon rejects the saved session, discard it and automatically start the browser authentication flow. Amazon may still require MFA or CAPTCHA confirmation.",
+            "type": "boolean",
+            "required": false,
+            "default": true
           },
           "proxy": {
             "title": "Proxy Client Host",
@@ -151,5 +237,142 @@
         "default": false
       }
     }
-  }
+  },
+  "layout": [
+    {
+      "type": "fieldset",
+      "title": "Amazonアカウント",
+      "description": "初回認証に必要な設定です。",
+      "items": [
+        {
+          "type": "flex",
+          "flex-flow": "row wrap",
+          "items": [
+            { "key": "amazonDomain", "flex": "1 1 50%" },
+            { "key": "language", "flex": "1 1 50%" }
+          ]
+        },
+        {
+          "type": "flex",
+          "flex-flow": "row wrap",
+          "items": [
+            { "key": "auth.proxy.clientHost", "flex": "1 1 65%" },
+            { "key": "auth.proxy.port", "flex": "1 1 35%" }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "fieldset",
+      "title": "HomeKitに表示する機器",
+      "description": "通常は「対応機器をすべて公開」のままで利用できます。",
+      "expandable": true,
+      "expanded": true,
+      "items": [
+        "deviceFilterMode",
+        {
+          "key": "devices",
+          "type": "array",
+          "title": "公開するAlexa機器",
+          "buttonText": "機器名を追加",
+          "condition": {
+            "functionBody": "return model.deviceFilterMode === 'include';"
+          },
+          "items": [{ "key": "devices[]" }]
+        },
+        {
+          "key": "excludeDevices",
+          "type": "array",
+          "title": "除外するAlexa機器",
+          "buttonText": "機器名を追加",
+          "condition": {
+            "functionBody": "return model.deviceFilterMode === 'exclude';"
+          },
+          "items": [{ "key": "excludeDevices[]" }]
+        },
+        {
+          "key": "deviceAliases",
+          "type": "array",
+          "title": "HomeKitで別名を使用",
+          "buttonText": "名前の対応を追加",
+          "expandable": true,
+          "expanded": false,
+          "items": [
+            {
+              "type": "flex",
+              "flex-flow": "row wrap",
+              "items": [
+                { "key": "deviceAliases[].alexaName", "flex": "1 1 50%" },
+                { "key": "deviceAliases[].homeKitName", "flex": "1 1 50%" }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "fieldset",
+      "title": "Alexa定型アクション",
+      "description": "必要な定型アクションだけHomeKitスイッチとして追加します。",
+      "expandable": true,
+      "expanded": false,
+      "items": [
+        {
+          "key": "routines.names",
+          "type": "array",
+          "title": "公開する定型アクション",
+          "buttonText": "定型アクション名を追加",
+          "items": [{ "key": "routines.names[]" }]
+        },
+        {
+          "type": "flex",
+          "flex-flow": "row wrap",
+          "condition": {
+            "functionBody": "return Array.isArray(model.routines?.names) && model.routines.names.length > 0;"
+          },
+          "items": [
+            { "key": "routines.executionDevice", "flex": "1 1 65%" },
+            { "key": "routines.resetDelayMs", "flex": "1 1 35%" }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "fieldset",
+      "title": "詳細設定",
+      "description": "認証更新、性能、デバッグに関する設定です。",
+      "expandable": true,
+      "expanded": false,
+      "items": [
+        {
+          "type": "flex",
+          "flex-flow": "row wrap",
+          "items": [
+            { "key": "auth.refreshInterval", "flex": "1 1 50%" },
+            { "key": "performance.cacheTTL", "flex": "1 1 50%" }
+          ]
+        },
+        "auth.reauthenticateOnFailure",
+        {
+          "key": "disabledOperations",
+          "type": "array",
+          "title": "機器ごとに無効化する機能",
+          "buttonText": "無効化設定を追加",
+          "expandable": true,
+          "expanded": false,
+          "items": [
+            {
+              "type": "flex",
+              "flex-flow": "row wrap",
+              "items": [
+                { "key": "disabledOperations[].deviceName", "flex": "1 1 45%" },
+                { "key": "disabledOperations[].operations", "flex": "1 1 55%" }
+              ]
+            }
+          ]
+        },
+        "debug"
+      ]
+    }
+  ]
 }

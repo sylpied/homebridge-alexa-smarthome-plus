@@ -1,51 +1,50 @@
 import { randomUUID } from 'crypto';
 import * as O from 'fp-ts/Option';
 import DeviceStore from './device-store';
-import { PluginLogger } from '../util/plugin-logger';
 
 describe('updateCacheValue', () => {
   test('should update given device and namespace were previously cached', () => {
     // given
     const deviceId = randomUUID();
-    const store = new DeviceStore(getPluginLogger());
+    const store = new DeviceStore({ cacheTTL: 30 });
     store.cache.states = {
       [deviceId]: [
         O.of({
-          namespace: 'Alexa.PowerController',
-          value: true,
+          featureName: 'power',
+          value: 'ON',
         }),
       ],
     };
 
     // when
     const cache = store.updateCacheValue(deviceId, {
-      namespace: 'Alexa.PowerController',
-      value: false,
+      featureName: 'power',
+      value: 'OFF',
     });
 
     // then
     expect(cache[deviceId].length).toBe(1);
     expect(
       O.Functor.map(cache[deviceId][0], ({ value }) => value),
-    ).toStrictEqual(O.of(false));
+    ).toStrictEqual(O.of('OFF'));
   });
 
   test('should not update given no previous value', () => {
     // given
     const deviceId = randomUUID();
-    const store = new DeviceStore(getPluginLogger());
+    const store = new DeviceStore({ cacheTTL: 30 });
     store.cache.states = {
       [deviceId]: [
         O.of({
-          namespace: 'Alexa.PowerController',
-          value: true,
+          featureName: 'power',
+          value: 'ON',
         }),
       ],
     };
 
     // when
     const cache = store.updateCacheValue(deviceId, {
-      namespace: 'Alexa.BrightnessController',
+      featureName: 'brightness',
       value: 100,
     });
 
@@ -53,9 +52,6 @@ describe('updateCacheValue', () => {
     expect(cache[deviceId].length).toBe(1);
     expect(
       O.Functor.map(cache[deviceId][0], ({ value }) => value),
-    ).toStrictEqual(O.of(true));
+    ).toStrictEqual(O.of('ON'));
   });
 });
-
-const getPluginLogger = () =>
-  new PluginLogger(global.MockLogger, global.createPlatformConfig());

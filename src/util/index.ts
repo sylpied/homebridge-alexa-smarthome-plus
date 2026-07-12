@@ -38,19 +38,41 @@ export const validateConfig = (
       (c) =>
         isMatching(
           {
-            platform: 'HomebridgeAlexaSmartHome',
+            platform: 'AlexaSmartHomePlus',
+            uiLanguage: Pattern.optional(Pattern.union('auto', 'ja', 'en')),
+            deviceFilterMode: Pattern.optional(
+              Pattern.union('all', 'include', 'exclude'),
+            ),
             devices: Pattern.optional(Pattern.array(Pattern.string)),
             excludeDevices: Pattern.optional(Pattern.array(Pattern.string)),
+            deviceAliases: Pattern.optional(
+              Pattern.array({
+                alexaName: Pattern.string,
+                homeKitName: Pattern.string,
+              }),
+            ),
+            routines: Pattern.optional({
+              names: Pattern.optional(Pattern.array(Pattern.string)),
+              executionDevice: Pattern.optional(Pattern.string),
+              resetDelayMs: Pattern.optional(Pattern.number),
+            }),
             amazonDomain: Pattern.optional(Pattern.string),
             language: Pattern.optional(Pattern.string),
             auth: {
               refreshInterval: Pattern.optional(Pattern.number),
+              reauthenticateOnFailure: Pattern.optional(Pattern.boolean),
               proxy: { clientHost: Pattern.string, port: Pattern.number },
             },
             performance: Pattern.optional({
               cacheTTL: Pattern.optional(Pattern.number),
               backgroundRefresh: Pattern.optional(Pattern.boolean),
             }),
+            disabledOperations: Pattern.optional(
+              Pattern.array({
+                deviceName: Pattern.string,
+                operations: Pattern.optional(Pattern.string),
+              }),
+            ),
             debug: Pattern.optional(Pattern.boolean),
           },
           c,
@@ -60,6 +82,27 @@ export const validateConfig = (
       constTrue,
     )
     .otherwise(constFalse);
+
+export const resolveHomeKitDeviceName = (
+  alexaName: string,
+  generatedName: string,
+  aliases: AlexaPlatformConfig['deviceAliases'],
+): string => {
+  const alias = aliases
+    ?.find(
+      ({ alexaName: configuredName }) =>
+        configuredName.trim() === alexaName.trim(),
+    )
+    ?.homeKitName.trim();
+
+  if (!alias) {
+    return generatedName;
+  }
+
+  return generatedName.startsWith(alexaName)
+    ? `${alias}${generatedName.slice(alexaName.length)}`
+    : alias;
+};
 
 export const isValidAuthentication = (
   maybeCookieData: J.Json | { readonly [key: string]: J.Json | undefined },

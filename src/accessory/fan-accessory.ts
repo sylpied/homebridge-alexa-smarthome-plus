@@ -70,6 +70,7 @@ export default class FanAccessory extends BaseAccessory {
             ),
             featureName: 'power',
           });
+          this.logWithContext('debug', `Set power succeeded: ${value}`);
         },
       ),
     )();

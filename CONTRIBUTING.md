@@ -11,7 +11,7 @@ Start by forking the repository to your own GitHub account. This allows you to p
 After forking the repository, you'll need to clone it to your local machine. This is where you'll be doing all of your work.
 
 ```sh
-git clone https://github.com/<your-username>/homebridge-alexa-smarthome.git
+git clone https://github.com/<your-username>/homebridge-alexa-smarthome-plus.git
 ```
 
 ## Create a New Branch
@@ -48,7 +48,7 @@ Lastly, before submitting your changes, make sure the tests pass.
 npm run test-ci
 ```
 
-You can run both the integration and unit tests using `npm test` as well, but that is optional. The integration tests require creating a `.env` file in the root of the repository (see [.env.example](./.env.example)) and a valid `.homebridge-alexa-smarthome` file in the root of the repository. You can copy the `.homebridge-alexa-smarthome` file from your Homebridge server if you have this plugin installed and working already.
+You can run both the integration and unit tests using `npm test` as well, but that is optional. The integration tests require creating a `.env` file in the root of the repository (see [.env.example](./.env.example)) and a valid `.homebridge-alexa-smarthome-plus` file in the root of the repository. You can copy the `.homebridge-alexa-smarthome-plus` file from your Homebridge server if you have this plugin installed and working already.
 
 ## Submit a Pull Request
 

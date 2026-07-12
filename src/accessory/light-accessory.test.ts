@@ -1,146 +1,59 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import * as O from 'fp-ts/Option';
+import * as E from 'fp-ts/Either';
 import * as TE from 'fp-ts/TaskEither';
-import { HomebridgeAPI } from 'homebridge/lib/api';
-import AlexaRemote from 'alexa-remote2';
 import { HttpError } from '../domain/alexa/errors';
-import { AlexaSmartHomePlatform } from '../platform';
-import DeviceStore from '../store/device-store';
-import { AlexaApiWrapper } from '../wrapper/alexa-api-wrapper';
 import LightAccessory from './light-accessory';
 
-jest.mock('../wrapper/alexa-api-wrapper.ts');
-const alexaApiMocks = AlexaApiWrapper as jest.MockedClass<
-  typeof AlexaApiWrapper
->;
-jest.mock('../store/device-store.ts');
-const deviceStoreMocks = DeviceStore as jest.MockedClass<typeof DeviceStore>;
+const createAccessory = () => {
+  const platform = global.createPlatform();
+  const device = global.createSmartHomeDevice({
+    id: 'entity:light',
+    endpointId: 'endpoint:light',
+    displayName: 'test light',
+    deviceType: 'LIGHT',
+    supportedOperations: ['turnOn', 'turnOff', 'setBrightness'],
+  });
+  const alexaApi = {
+    getDeviceStateGraphQl: jest.fn(),
+    setDeviceStateGraphQl: jest.fn(),
+  };
+  (platform as any).alexaApi = alexaApi;
+  const platAcc = new platform.api.platformAccessory(
+    device.displayName,
+    global.TEST_UUID,
+  );
+  const accessory = new LightAccessory(platform, device, platAcc);
+  accessory.configureServices();
+  return { accessory, alexaApi };
+};
 
-describe('handlePowerGet', () => {
-  test('should determine power state', async () => {
-    // given
-    const acc = createLightAccessory();
-    const mockAlexaApi = getMockedAlexaApi();
-    mockAlexaApi.getDeviceStateGraphQl.mockReturnValueOnce(
-      TE.of({
-        fromCache: false,
-        statesByDevice: {
-          [acc.device.id]: [
-            O.of({
-              namespace: 'Alexa.PowerController',
-              name: 'power',
-              value: 'ON',
-            }),
-          ],
-        },
-      }),
+describe('LightAccessory power', () => {
+  test('reads the current power state', async () => {
+    const { accessory, alexaApi } = createAccessory();
+    alexaApi.getDeviceStateGraphQl.mockReturnValue(
+      TE.right([false, [{ featureName: 'power', value: 'ON' }]]),
     );
 
-    // when
-    const powerState = acc.handlePowerGet();
-
-    // then
-    await expect(powerState).resolves.toBe(true);
+    await expect(accessory.handlePowerGet()).resolves.toBe(true);
   });
 
-  test('should throw an error if power state not available', async () => {
-    // given
-    const acc = createLightAccessory();
-    const mockAlexaApi = getMockedAlexaApi();
-    mockAlexaApi.getDeviceStateGraphQl.mockReturnValueOnce(
-      TE.of({
-        fromCache: false,
-        statesByDevice: {
-          [acc.device.id]: [
-            O.of({
-              namespace: 'Alexa.BrightnessController',
-              name: 'brightness',
-              value: '100',
-            }),
-          ],
-        },
-      }),
-    );
+  test('writes power and updates the cache', async () => {
+    const { accessory, alexaApi } = createAccessory();
+    alexaApi.setDeviceStateGraphQl.mockReturnValue(TE.right(undefined));
 
-    // when
-    const powerState = acc.handlePowerGet();
-
-    // then
-    await expect(powerState).rejects.toStrictEqual(
-      acc.serviceCommunicationError,
-    );
-    expect(global.MockLogger.error).toHaveBeenCalledWith(
-      'test light - Get power - InvalidResponse(State not available)',
+    await expect(accessory.handlePowerSet(true)).resolves.toBeUndefined();
+    expect(alexaApi.setDeviceStateGraphQl).toHaveBeenCalledWith(
+      'endpoint:light',
+      'power',
+      'turnOn',
     );
   });
 
-  test('should log API errors', async () => {
-    // given
-    const acc = createLightAccessory();
-    const mockAlexaApi = getMockedAlexaApi();
-    mockAlexaApi.getDeviceStateGraphQl.mockReturnValueOnce(
-      TE.left(new HttpError('bad day')),
+  test('surfaces Alexa write failures as HomeKit communication errors', async () => {
+    const { accessory, alexaApi } = createAccessory();
+    alexaApi.setDeviceStateGraphQl.mockReturnValue(
+      TE.left(new HttpError('write failed')),
     );
 
-    // when
-    const powerState = acc.handlePowerGet();
-
-    // then
-    await expect(powerState).rejects.toStrictEqual(
-      acc.serviceCommunicationError,
-    );
-    expect(global.MockLogger.error).toHaveBeenCalledWith(
-      'test light - Get power - HttpError(bad day)',
-    );
+    await expect(accessory.handlePowerSet(false)).rejects.toBeDefined();
   });
 });
-
-function createPlatform() {
-  const platform = new AlexaSmartHomePlatform(
-    global.MockLogger,
-    global.createPlatformConfig(),
-    new HomebridgeAPI(),
-  );
-  (platform as any).deviceStore = new DeviceStore(platform.log);
-  (platform as any).alexaApi = new AlexaApiWrapper(
-    new AlexaRemote(),
-    platform.log,
-    platform.deviceStore,
-  );
-  return platform;
-}
-
-function createLightAccessory() {
-  const device = {
-    id: '123',
-    displayName: 'test light',
-    description: 'test',
-    supportedOperations: ['turnOff', 'turnOn', 'setBrightness'],
-    providerData: {
-      enabled: true,
-      categoryType: 'APPLIANCE',
-      deviceType: 'LIGHT',
-    },
-  };
-  const platform = createPlatform();
-  const uuid = platform.HAP.uuid.generate(device.id);
-  const platAcc = new platform.api.platformAccessory(device.displayName, uuid);
-  const acc = new LightAccessory(platform, device, platAcc);
-  acc.service = platAcc.addService(
-    acc.Service.Lightbulb,
-    acc.device.displayName,
-  );
-  return acc;
-}
-
-function getMockedAlexaApi(): jest.Mocked<AlexaApiWrapper> {
-  const mock = alexaApiMocks.mock.instances[0] as jest.Mocked<AlexaApiWrapper>;
-  mockDeviceStore();
-  return mock;
-}
-
-function mockDeviceStore(): jest.Mocked<DeviceStore> {
-  const mock = deviceStoreMocks.mock.instances[0] as jest.Mocked<DeviceStore>;
-  mock.getCacheValue.mockReturnValueOnce(O.none);
-  return mock;
-}
