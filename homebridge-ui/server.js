@@ -245,7 +245,10 @@ const normalizeRoutines = (response) => {
             baseAmazonPageHandle: '',
             deviceAppName: 'Homebridge',
             formerDataStorePath: `${this.authPath}.proxy`,
-            logger: (message) => console.log(message),
+            // alexa-cookie2 debug messages can contain complete cookies, OAuth
+            // tokens, request bodies, and private device keys. Never forward
+            // those messages into the Homebridge log.
+            logger: () => undefined,
             proxyCloseWindowHTML: authenticationCompleteHtml,
             proxyListenBind: '0.0.0.0',
             proxyLogLevel: 'error',

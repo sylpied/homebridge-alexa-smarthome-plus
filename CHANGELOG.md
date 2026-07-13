@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-rc.3] - 2026-07-13
+
+### Security
+
+- Suppress all `alexa-cookie2` diagnostic output during browser authentication because it can contain Amazon cookies, OAuth tokens, request bodies, account details, and private device keys.
+
 ## [1.0.0-rc.2] - 2026-07-13
 
 ### Fixed

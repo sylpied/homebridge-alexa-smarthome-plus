@@ -1003,7 +1003,7 @@
         : config.uiLanguage;
     try {
       const response = await withTimeout(
-        fetch(`locales/${selected}.json?v=1.0.0-rc.2`),
+        fetch(`locales/${selected}.json?v=1.0.0-rc.3`),
         undefined,
       );
       translations = response?.ok ? await response.json() : {};
