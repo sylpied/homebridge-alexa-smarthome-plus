@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-rc.4] - 2026-07-13
+
+### Fixed
+
+- Confirm smart-lock commands by polling Alexa for the physical `LOCKED` or `UNLOCKED` state and then update HomeKit, preventing the Home app from remaining indefinitely in progress.
+
 ## [1.0.0-rc.3] - 2026-07-13
 
 ### Security

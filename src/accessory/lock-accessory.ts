@@ -1,4 +1,5 @@
 import * as A from 'fp-ts/Array';
+import * as E from 'fp-ts/Either';
 import * as O from 'fp-ts/Option';
 import * as TE from 'fp-ts/TaskEither';
 import { flow, identity, pipe } from 'fp-ts/lib/function';
@@ -102,12 +103,72 @@ export default class LockAccessory extends BaseAccessory {
           throw this.serviceCommunicationError;
         },
         () => {
-          this.updateCacheValue({
-            value: targetState,
-            featureName: 'lock',
-          });
+          // Alexa's control response only confirms that the command was
+          // accepted. The physical lock may still be moving, so finish the
+          // HomeKit transition when Alexa reports the requested state.
+          void this.confirmTargetState(targetState, value);
         },
       ),
     )();
+  }
+
+  private async confirmTargetState(
+    targetState: 'lock' | 'unlock',
+    homeKitTargetState: CharacteristicValue,
+  ): Promise<void> {
+    const expectedAlexaState = targetState === 'lock' ? 'LOCKED' : 'UNLOCKED';
+
+    for (let attempt = 0; attempt < 10; attempt++) {
+      await new Promise((resolve) =>
+        setTimeout(resolve, attempt === 0 ? 300 : 1000),
+      );
+
+      const result = await this.platform.alexaApi.getDeviceStateGraphQl(
+        this.device,
+        this.service,
+        false,
+      )();
+
+      if (E.isLeft(result)) {
+        continue;
+      }
+
+      const [, states] = result.right;
+      const lockState = states.find(
+        ({ featureName, name }) =>
+          featureName === 'lock' && name === 'lockState',
+      );
+
+      if (lockState?.value !== expectedAlexaState) {
+        continue;
+      }
+
+      this.updateCacheValue({
+        featureName: 'lock',
+        name: 'lockState',
+        value: expectedAlexaState,
+      });
+      this.service
+        .getCharacteristic(this.Characteristic.LockCurrentState)
+        .updateValue(
+          mapper.mapAlexaCurrentStateToHomeKit(
+            expectedAlexaState,
+            this.Characteristic,
+          ),
+        );
+      this.service
+        .getCharacteristic(this.Characteristic.LockTargetState)
+        .updateValue(homeKitTargetState);
+      this.logWithContext(
+        'debug',
+        `Confirmed physical lock state: ${expectedAlexaState}`,
+      );
+      return;
+    }
+
+    this.logWithContext(
+      'warn',
+      `Timed out waiting for physical lock state: ${expectedAlexaState}`,
+    );
   }
 }
