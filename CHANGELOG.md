@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-rc.2] - 2026-07-13
+
+### Fixed
+
+- Time out stalled Alexa discovery requests and allow a later retry.
+- Return discovery progress through the authenticated settings API instead of writing device names into the installed plugin directory.
+- Store refreshed Alexa authentication atomically with owner-only file permissions.
+- Do not infer a connected Amazon account solely from cached HomeKit accessories.
+- Stop temporary Alexa connections after discovery completes or fails.
+- Track selections by Alexa endpoint ID so devices with identical names can be selected independently.
+
+### Tests
+
+- Add settings-server tests for timeout cleanup and private authentication-file permissions.
+
 ## [1.0.0-rc.1] - 2026-07-12
 
 ### Added

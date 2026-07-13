@@ -14,7 +14,9 @@ export interface AlexaPlatformConfig extends PlatformConfig {
   uiLanguage: Nullable<'auto' | 'ja' | 'en'>;
   deviceFilterMode: Nullable<'all' | 'include' | 'exclude'>;
   devices: Nullable<string[]>;
+  deviceIds: Nullable<string[]>;
   excludeDevices: Nullable<string[]>;
+  excludeDeviceIds: Nullable<string[]>;
   deviceAliases: Nullable<
     Array<{
       alexaName: string;

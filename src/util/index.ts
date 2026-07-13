@@ -44,7 +44,9 @@ export const validateConfig = (
               Pattern.union('all', 'include', 'exclude'),
             ),
             devices: Pattern.optional(Pattern.array(Pattern.string)),
+            deviceIds: Pattern.optional(Pattern.array(Pattern.string)),
             excludeDevices: Pattern.optional(Pattern.array(Pattern.string)),
+            excludeDeviceIds: Pattern.optional(Pattern.array(Pattern.string)),
             deviceAliases: Pattern.optional(
               Pattern.array({
                 alexaName: Pattern.string,

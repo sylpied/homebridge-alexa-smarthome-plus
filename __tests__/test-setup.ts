@@ -30,11 +30,7 @@ global.createPlatform = (): AlexaSmartHomePlatform => {
   const api = new HomebridgeAPI();
   api.hap.uuid.generate = constant(TEST_UUID);
   const config = global.createPlatformConfig();
-  const platform = new AlexaSmartHomePlatform(
-    global.MockLogger,
-    config,
-    api,
-  );
+  const platform = new AlexaSmartHomePlatform(global.MockLogger, config, api);
   if (!(platform as any).deviceStore) {
     (platform as any).deviceStore = new DeviceStore(config.performance);
   }
@@ -46,7 +42,9 @@ global.createPlatformConfig = (): AlexaPlatformConfig => ({
   uiLanguage: 'auto',
   deviceFilterMode: 'all',
   devices: [],
+  deviceIds: [],
   excludeDevices: [],
+  excludeDeviceIds: [],
   deviceAliases: [],
   routines: {
     names: [],

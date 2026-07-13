@@ -21,6 +21,7 @@ After connecting an Amazon account, the plugin retrieves Alexa devices and routi
 - Guided browser authentication
 - Device and routine discovery with manual refresh
 - Search, type labels, and bulk selection of visible results
+- Independent selection of identically named Alexa devices using endpoint IDs
 - HomeKit-only aliases that do not rename Alexa devices
 - Japanese and English UI with automatic language selection
 - Inline authentication and discovery progress

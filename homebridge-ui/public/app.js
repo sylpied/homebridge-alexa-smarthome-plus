@@ -23,7 +23,9 @@
     language: 'en-US',
     deviceFilterMode: 'all',
     devices: [],
+    deviceIds: [],
     excludeDevices: [],
+    excludeDeviceIds: [],
     deviceAliases: [],
     routines: { names: [], executionDevice: '', resetDelayMs: 500 },
     auth: {
@@ -125,11 +127,19 @@
       </div>
       <div class="asmp-auth-actions mt-3">
         <span id="auth-state" class="badge"></span>
-        <button id="start-auth" type="button" class="btn btn-primary btn-sm">${t('connectAlexa')}</button>
-        <button id="discover-alexa" type="button" class="btn btn-outline-primary btn-sm">${t('refreshAlexa')}</button>
-        <button id="clear-auth" type="button" class="btn btn-outline-danger btn-sm">${t('disconnectAlexa')}</button>
+        <button id="start-auth" type="button" class="btn btn-primary btn-sm">${t(
+          'connectAlexa',
+        )}</button>
+        <button id="discover-alexa" type="button" class="btn btn-outline-primary btn-sm">${t(
+          'refreshAlexa',
+        )}</button>
+        <button id="clear-auth" type="button" class="btn btn-outline-danger btn-sm">${t(
+          'disconnectAlexa',
+        )}</button>
       </div>
-      <a id="auth-login-link" class="btn btn-link px-0 d-none" target="_blank" rel="noopener noreferrer">${t('openAmazonLogin')}</a>
+      <a id="auth-login-link" class="btn btn-link px-0 d-none" target="_blank" rel="noopener noreferrer">${t(
+        'openAmazonLogin',
+      )}</a>
       <div class="asmp-security-note mt-3" role="note">
         <strong>${t('securityTitle')}</strong>
         <span>${t('securityNotice')}</span>
@@ -475,20 +485,23 @@
       // though the server received it. Do not block result polling on it.
       void homebridge
         .request('/auth/status', { refresh: true, config })
-        .catch((error) => console.error('Alexa discovery start failed:', error));
+        .catch((error) =>
+          console.error('Alexa discovery start failed:', error),
+        );
       const startedAt = Date.now();
       const poll = async () => {
         try {
-          const response = await fetch(
-            `discovery-result.json?t=${Date.now()}`,
-            { cache: 'no-store' },
+          const status = await withTimeout(
+            homebridge.request('/auth/status', {}),
+            undefined,
+            4000,
           );
-          const result = response.ok ? await response.json() : undefined;
+          const result = status?.discovery;
           const completedAt = result?.completedAt
             ? new Date(result.completedAt).getTime()
             : 0;
           if (completedAt && completedAt < startedAt) {
-            window.setTimeout(() => void poll(), 750);
+            window.setTimeout(() => void poll(), 1000);
             return;
           }
           if (result?.status === 'complete') {
@@ -512,15 +525,15 @@
         } catch (error) {
           console.error('Alexa discovery status check failed:', error);
         }
-        if (Date.now() - startedAt >= 15000) {
+        if (Date.now() - startedAt >= 16000) {
           discoveryInProgress = false;
           if (refreshButton) refreshButton.disabled = false;
           byId('auth-updated').textContent = t('discoveryContinues');
           return;
         }
-        window.setTimeout(() => void poll(), 750);
+        window.setTimeout(() => void poll(), 1000);
       };
-      window.setTimeout(() => void poll(), 750);
+      window.setTimeout(() => void poll(), 1000);
     } catch (error) {
       discoveryInProgress = false;
       if (refreshButton) refreshButton.disabled = false;
@@ -528,7 +541,8 @@
     }
   };
 
-  const setDevicePublished = (name, published) => {
+  const setDevicePublished = (item, published) => {
+    const { id, name } = item;
     const addUnique = (values, value) => {
       if (!values.includes(value)) values.push(value);
     };
@@ -541,14 +555,27 @@
       if (!published) {
         config.deviceFilterMode = 'exclude';
         addUnique(config.excludeDevices, name);
+        addUnique(config.excludeDeviceIds, id);
       }
     } else if (config.deviceFilterMode === 'include') {
-      if (published) addUnique(config.devices, name);
+      if (published) addUnique(config.deviceIds, id);
+      else remove(config.deviceIds, id);
+      const sameNameSelected = discoveredDevices.some(
+        (device) =>
+          device.name === name && config.deviceIds.includes(device.id),
+      );
+      if (sameNameSelected) addUnique(config.devices, name);
       else remove(config.devices, name);
     } else if (published) {
-      remove(config.excludeDevices, name);
+      remove(config.excludeDeviceIds, id);
+      const sameNameExcluded = discoveredDevices.some(
+        (device) =>
+          device.name === name && config.excludeDeviceIds.includes(device.id),
+      );
+      if (!sameNameExcluded) remove(config.excludeDevices, name);
     } else {
       addUnique(config.excludeDevices, name);
+      addUnique(config.excludeDeviceIds, id);
     }
 
     byId('device-mode').value = config.deviceFilterMode;
@@ -557,10 +584,14 @@
     scheduleUpdate();
   };
 
-  const isDevicePublished = (name) => {
+  const isDevicePublished = ({ id, name }) => {
     if (config.deviceFilterMode === 'all') return true;
     if (config.deviceFilterMode === 'include') {
+      if (config.deviceIds.length > 0) return config.deviceIds.includes(id);
       return config.devices.includes(name);
+    }
+    if (config.excludeDeviceIds.length > 0) {
+      return !config.excludeDeviceIds.includes(id);
     }
     return !config.excludeDevices.includes(name);
   };
@@ -576,8 +607,10 @@
     const heading = document.createElement('h6');
     const selectedCount = document.createElement('span');
     const updateCount = () => {
-      const selected = items.filter((item) => checked(item.name)).length;
-      selectedCount.textContent = `${t('selectedCount')}: ${selected} / ${items.length}`;
+      const selected = items.filter((item) => checked(item)).length;
+      selectedCount.textContent = `${t('selectedCount')}: ${selected} / ${
+        items.length
+      }`;
     };
     heading.textContent = title;
     wrapper.append(heading);
@@ -609,9 +642,9 @@
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
       checkbox.className = 'form-check-input';
-      checkbox.checked = checked(item.name);
+      checkbox.checked = checked(item);
       checkbox.addEventListener('change', () => {
-        onChange(item.name, checkbox.checked);
+        onChange(item, checkbox.checked);
         updateCount();
       });
       const text = document.createElement('span');
@@ -631,13 +664,18 @@
       rows.forEach(({ item, label }) => {
         label.hidden = Boolean(
           query &&
-            !`${item.name} ${item.type || ''}`.toLocaleLowerCase().includes(query),
+            !`${item.name} ${item.type || ''}`
+              .toLocaleLowerCase()
+              .includes(query),
         );
       });
     });
     const bulkChange = (published) => {
       const visible = rows.filter(({ label }) => !label.hidden);
-      onBulkChange(visible.map(({ item }) => item.name), published);
+      onBulkChange(
+        visible.map(({ item }) => item),
+        published,
+      );
       visible.forEach(({ checkbox }) => {
         checkbox.checked = published;
       });
@@ -664,8 +702,8 @@
           discoveredDevices,
           isDevicePublished,
           setDevicePublished,
-          (names, published) => {
-            names.forEach((name) => setDevicePublished(name, published));
+          (items, published) => {
+            items.forEach((item) => setDevicePublished(item, published));
           },
         ),
       );
@@ -676,8 +714,9 @@
         createDiscoveryList(
           t('discoveredRoutines'),
           discoveredRoutines,
-          (name) => config.routines.names.includes(name),
-          (name, published) => {
+          (item) => config.routines.names.includes(item.name),
+          (item, published) => {
+            const { name } = item;
             const index = config.routines.names.indexOf(name);
             if (published && index < 0) config.routines.names.push(name);
             if (!published && index >= 0) {
@@ -687,11 +726,12 @@
             updateConditionalFields();
             scheduleUpdate();
           },
-          (names, published) => {
-            names.forEach((name) => {
+          (items, published) => {
+            items.forEach(({ name }) => {
               const index = config.routines.names.indexOf(name);
               if (published && index < 0) config.routines.names.push(name);
-              if (!published && index >= 0) config.routines.names.splice(index, 1);
+              if (!published && index >= 0)
+                config.routines.names.splice(index, 1);
             });
             renderLists();
             updateConditionalFields();
@@ -700,6 +740,31 @@
         ),
       );
     }
+  };
+
+  const migrateNameFiltersToDeviceIds = () => {
+    let changed = false;
+    if (
+      config.deviceFilterMode === 'include' &&
+      config.deviceIds.length === 0 &&
+      config.devices.length > 0
+    ) {
+      config.deviceIds = discoveredDevices
+        .filter(({ name }) => config.devices.includes(name))
+        .map(({ id }) => id);
+      changed = config.deviceIds.length > 0;
+    }
+    if (
+      config.deviceFilterMode === 'exclude' &&
+      config.excludeDeviceIds.length === 0 &&
+      config.excludeDevices.length > 0
+    ) {
+      config.excludeDeviceIds = discoveredDevices
+        .filter(({ name }) => config.excludeDevices.includes(name))
+        .map(({ id }) => id);
+      changed = changed || config.excludeDeviceIds.length > 0;
+    }
+    return changed;
   };
 
   const applyDiscoveryResult = (result) => {
@@ -712,12 +777,14 @@
     authentication = { ...authentication, authenticated: true };
     discoveredDevices = Array.isArray(result.devices) ? result.devices : [];
     discoveredRoutines = Array.isArray(result.routines) ? result.routines : [];
+    const migratedDeviceFilters = migrateNameFiltersToDeviceIds();
     renderAuthenticationStatus();
     renderDiscoveryResults();
     discoveryInProgress = false;
     const refreshButton = byId('discover-alexa');
     if (refreshButton) refreshButton.disabled = false;
     byId('auth-updated').textContent = t('discoveryComplete');
+    if (migratedDeviceFilters) scheduleUpdate();
     homebridge.fixScrollHeight?.();
     return true;
   };
@@ -748,7 +815,13 @@
     return button;
   };
 
-  const renderStringList = (containerId, values, placeholder, listId) => {
+  const renderStringList = (
+    containerId,
+    values,
+    placeholder,
+    listId,
+    onManualChange = () => {},
+  ) => {
     const container = byId(containerId);
     container.replaceChildren();
     values.forEach((value, index) => {
@@ -760,12 +833,14 @@
           placeholder,
           (next) => {
             values[index] = next;
+            onManualChange();
             scheduleUpdate();
           },
           listId,
         ),
         removeButton(() => {
           values.splice(index, 1);
+          onManualChange();
           renderLists();
           updateConditionalFields();
           scheduleUpdate();
@@ -817,12 +892,18 @@
       config.devices,
       t('alexaName'),
       'device-candidates',
+      () => {
+        config.deviceIds = [];
+      },
     );
     renderStringList(
       'excluded-list',
       config.excludeDevices,
       t('alexaName'),
       'device-candidates',
+      () => {
+        config.excludeDeviceIds = [];
+      },
     );
     renderStringList(
       'routine-list',
@@ -844,8 +925,14 @@
       [t('alexaName'), t('operations')],
     );
 
-    byId('add-included').onclick = () => addString(config.devices);
-    byId('add-excluded').onclick = () => addString(config.excludeDevices);
+    byId('add-included').onclick = () => {
+      config.deviceIds = [];
+      addString(config.devices);
+    };
+    byId('add-excluded').onclick = () => {
+      config.excludeDeviceIds = [];
+      addString(config.excludeDevices);
+    };
     byId('add-routine').onclick = () => addString(config.routines.names);
     byId('add-alias').onclick = () => {
       config.deviceAliases.push({ alexaName: '', homeKitName: '' });
@@ -916,7 +1003,7 @@
         : config.uiLanguage;
     try {
       const response = await withTimeout(
-        fetch(`locales/${selected}.json?v=1.0.0-rc.1`),
+        fetch(`locales/${selected}.json?v=1.0.0-rc.2`),
         undefined,
       );
       translations = response?.ok ? await response.json() : {};
@@ -949,13 +1036,6 @@
         .catch(() => ({ authenticated: false })),
       { authenticated: false },
     );
-    if (!authentication.authenticated && cachedAccessories.length > 0) {
-      authentication = {
-        ...authentication,
-        authenticated: true,
-        inferredFromCache: true,
-      };
-    }
     render();
 
     homebridge.addEventListener?.('alexa-authenticated', async (event) => {
@@ -970,7 +1050,10 @@
     homebridge.addEventListener?.('alexa-authentication-error', (event) => {
       const message = event.data?.message || event.detail?.message;
       byId('auth-updated').textContent = message || t('authenticationFailed');
-      homebridge.toast?.error(message || t('authenticationFailed'), t('account'));
+      homebridge.toast?.error(
+        message || t('authenticationFailed'),
+        t('account'),
+      );
     });
     homebridge.addEventListener?.('alexa-discovery-complete', (event) => {
       const result = event.data || event.detail || {};

@@ -3,9 +3,11 @@ const path = require('node:path');
 const AlexaRemoteModule = require('alexa-remote2');
 const AlexaRemote = AlexaRemoteModule.default || AlexaRemoteModule;
 const AlexaCookie = require('alexa-cookie2');
+const { withTimeout, writePrivateJson } = require('./server-core');
 
 const PLUGIN_NAME = 'homebridge-alexa-smarthome-plus';
 const ONE_DAY_MILLIS = 24 * 60 * 60 * 1000;
+const DISCOVERY_TIMEOUT_MILLIS = 12000;
 
 const toPromise = (fn) =>
   new Promise((resolve, reject) =>
@@ -18,11 +20,12 @@ const extractLoginUrl = (message) =>
 const normalizeDevices = (devices) =>
   (Array.isArray(devices) ? devices : [])
     .map((device) => ({
-      id:
+      id: String(
         device.id ||
-        device.endpointId ||
-        device.legacyIdentifiers?.applianceId ||
-        '',
+          device.endpointId ||
+          device.legacyIdentifiers?.applianceId ||
+          '',
+      ).replace('amzn1.alexa.endpoint.', ''),
       name:
         device.friendlyName ||
         device.displayName ||
@@ -61,6 +64,7 @@ const normalizeRoutines = (response) => {
       this.activeRemote = undefined;
       this.authenticationStarting = false;
       this.discoveryState = { status: 'idle' };
+      this.lastAuthenticationLog = '';
 
       this.onRequest('/auth/status', this.authStatus.bind(this));
       this.onRequest('/auth/start', this.startAuthentication.bind(this));
@@ -76,16 +80,6 @@ const normalizeRoutines = (response) => {
       );
     }
 
-    get discoveryResultPath() {
-      return path.join(__dirname, 'public', 'discovery-result.json');
-    }
-
-    writeDiscoveryResult(result) {
-      const temporaryPath = `${this.discoveryResultPath}.tmp`;
-      fs.writeFileSync(temporaryPath, JSON.stringify(result));
-      fs.renameSync(temporaryPath, this.discoveryResultPath);
-    }
-
     readAuthentication() {
       try {
         return JSON.parse(fs.readFileSync(this.authPath, 'utf8')).cookieData;
@@ -95,13 +89,7 @@ const normalizeRoutines = (response) => {
     }
 
     writeAuthentication(cookieData) {
-      const directory = path.dirname(this.authPath);
-      fs.mkdirSync(directory, { recursive: true });
-      fs.writeFileSync(
-        this.authPath,
-        JSON.stringify({ cookieData }),
-        { mode: 0o600 },
-      );
+      writePrivateJson(this.authPath, { cookieData });
     }
 
     async authStatus(request = {}) {
@@ -129,10 +117,15 @@ const normalizeRoutines = (response) => {
         updatedAt: auth?.tokenDate
           ? new Date(auth.tokenDate).toISOString()
           : undefined,
+        discovery: this.discoveryState,
       };
-      console.log(
-        `Alexa authentication status: authenticated=${status.authenticated}, path=${this.authPath}`,
-      );
+      const logSignature = `${status.authenticated}:${status.updatedAt || ''}`;
+      if (logSignature !== this.lastAuthenticationLog) {
+        this.lastAuthenticationLog = logSignature;
+        console.log(
+          `Alexa authentication status: authenticated=${status.authenticated}, path=${this.authPath}`,
+        );
+      }
       return status;
     }
 
@@ -198,9 +191,13 @@ const normalizeRoutines = (response) => {
       const host = config.auth?.proxy?.clientHost;
       const port = config.auth?.proxy?.port;
       if (!host || !port) {
-        throw new RequestError('Alexa authentication settings are incomplete.', {
-          message: 'Homebridge host and authentication proxy port are required.',
-        });
+        throw new RequestError(
+          'Alexa authentication settings are incomplete.',
+          {
+            message:
+              'Homebridge host and authentication proxy port are required.',
+          },
+        );
       }
 
       // AlexaRemote keeps the init callback pending while the browser login is
@@ -236,63 +233,76 @@ const normalizeRoutines = (response) => {
           );
         }, 10000);
 
-        AlexaCookie.generateAlexaCookie({
-          acceptLanguage: language,
-          amazonPage: domain,
-          amazonPageProxyLanguage: language.replace('-', '_'),
-          // The regional amazon.co.jp maplanding endpoint currently returns an
-          // invalid-page error after login. Token registration uses Amazon's
-          // global device-auth endpoint while Alexa API calls remain regional.
-          baseAmazonPage: 'amazon.com',
-          baseAmazonPageHandle: '',
-          deviceAppName: 'Homebridge',
-          formerDataStorePath: `${this.authPath}.proxy`,
-          logger: (message) => console.log(message),
-          proxyCloseWindowHTML: authenticationCompleteHtml,
-          proxyListenBind: '0.0.0.0',
-          proxyLogLevel: 'error',
-          proxyOnly: true,
-          proxyOwnIp: host,
-          proxyPort: port,
-          setupProxy: true,
-        }, (error, cookieData) => {
-          if (cookieData?.localCookie && cookieData?.refreshToken) {
-            this.writeAuthentication(cookieData);
-            this.authenticationStarting = false;
-            AlexaCookie.stopProxyServer();
-            this.pushEvent('alexa-authenticated', {
-              authenticated: true,
-              amazonDomain: cookieData.amazonPage || domain,
-              updatedAt: new Date().toISOString(),
-            });
-            return;
-          }
-
-          const reportedUrl = extractLoginUrl(error?.message) || loginUrl;
-          if (error && /Please open http/i.test(error.message)) {
-            if (!readyReported) {
-              readyReported = true;
+        AlexaCookie.generateAlexaCookie(
+          {
+            acceptLanguage: language,
+            amazonPage: domain,
+            amazonPageProxyLanguage: language.replace('-', '_'),
+            // The regional amazon.co.jp maplanding endpoint currently returns an
+            // invalid-page error after login. Token registration uses Amazon's
+            // global device-auth endpoint while Alexa API calls remain regional.
+            baseAmazonPage: 'amazon.com',
+            baseAmazonPageHandle: '',
+            deviceAppName: 'Homebridge',
+            formerDataStorePath: `${this.authPath}.proxy`,
+            logger: (message) => console.log(message),
+            proxyCloseWindowHTML: authenticationCompleteHtml,
+            proxyListenBind: '0.0.0.0',
+            proxyLogLevel: 'error',
+            proxyOnly: true,
+            proxyOwnIp: host,
+            proxyPort: port,
+            setupProxy: true,
+          },
+          (error, cookieData) => {
+            if (cookieData?.localCookie && cookieData?.refreshToken) {
+              this.writeAuthentication(cookieData);
+              this.authenticationStarting = false;
               clearTimeout(timeout);
-              this.pushEvent('alexa-proxy-ready', { loginUrl: reportedUrl });
-              resolve({ authenticated: false, loginUrl: reportedUrl });
+              AlexaCookie.stopProxyServer();
+              this.pushEvent('alexa-authenticated', {
+                authenticated: true,
+                amazonDomain: cookieData.amazonPage || domain,
+                updatedAt: new Date().toISOString(),
+              });
+              if (!readyReported) {
+                readyReported = true;
+                resolve({ authenticated: true });
+              }
+              return;
             }
-            return;
-          }
 
-          if (error) {
-            this.authenticationStarting = false;
-            console.error(`Alexa authentication proxy startup failed: ${error.message}`);
-            this.pushEvent('alexa-authentication-error', {
-              message: error.message,
-            });
-            clearTimeout(timeout);
-            reject(
-              new RequestError('Alexa authentication proxy could not start.', {
+            const reportedUrl = extractLoginUrl(error?.message) || loginUrl;
+            if (error && /Please open http/i.test(error.message)) {
+              if (!readyReported) {
+                readyReported = true;
+                clearTimeout(timeout);
+                this.pushEvent('alexa-proxy-ready', { loginUrl: reportedUrl });
+                resolve({ authenticated: false, loginUrl: reportedUrl });
+              }
+              return;
+            }
+
+            if (error) {
+              this.authenticationStarting = false;
+              console.error(
+                `Alexa authentication proxy startup failed: ${error.message}`,
+              );
+              this.pushEvent('alexa-authentication-error', {
                 message: error.message,
-              }),
-            );
-          }
-        });
+              });
+              clearTimeout(timeout);
+              reject(
+                new RequestError(
+                  'Alexa authentication proxy could not start.',
+                  {
+                    message: error.message,
+                  },
+                ),
+              );
+            }
+          },
+        );
       });
     }
 
@@ -302,30 +312,50 @@ const normalizeRoutines = (response) => {
       fs.rmSync(this.authPath, { force: true });
       fs.rmSync(`${this.authPath}.proxy`, { force: true });
       this.activeRemote = undefined;
+      this.discoveryState = { status: 'idle' };
       return { authenticated: false };
     }
 
     async performDiscovery(config) {
+      let remote;
       try {
-        console.log('Alexa discovery: initializing authenticated connection...');
-        const remote = await this.initializeRemote(config, false);
+        console.log(
+          'Alexa discovery: initializing authenticated connection...',
+        );
+        remote = await withTimeout(
+          this.initializeRemote(config, false),
+          DISCOVERY_TIMEOUT_MILLIS,
+          'Alexa connection initialization timed out. Please try again.',
+          () => {
+            this.activeRemote?.stop?.();
+            this.activeRemote = undefined;
+          },
+        );
         console.log('Alexa discovery: authenticated connection initialized.');
         console.log('Alexa discovery: requesting devices and routines...');
-        const [devices, routines] = await Promise.all([
-          toPromise((callback) => remote.getSmarthomeDevicesV2(callback)),
-          toPromise((callback) =>
-            remote.getAutomationRoutines(2000, callback),
-          ),
-        ]);
+        const [devices, routines] = await withTimeout(
+          Promise.all([
+            toPromise((callback) => remote.getSmarthomeDevicesV2(callback)),
+            toPromise((callback) =>
+              remote.getAutomationRoutines(2000, callback),
+            ),
+          ]),
+          DISCOVERY_TIMEOUT_MILLIS,
+          'Alexa device discovery timed out. Please try again.',
+          () => remote?.stop?.(),
+        );
         console.log(
-          `Alexa discovery: completed with ${normalizeDevices(devices).length} devices and ${normalizeRoutines(routines).length} routines.`,
+          `Alexa discovery: completed with ${
+            normalizeDevices(devices).length
+          } devices and ${normalizeRoutines(routines).length} routines.`,
         );
         const normalizedDevices = normalizeDevices(devices);
         const normalizedRoutines = normalizeRoutines(routines);
         // The settings UI only needs names and display types. Alexa endpoint
         // and automation identifiers can be very large or non-plain values,
         // which prevents Homebridge UI IPC responses from being serialized.
-        const uiDevices = normalizedDevices.map(({ name, type }) => ({
+        const uiDevices = normalizedDevices.map(({ id, name, type }) => ({
+          id,
           name,
           type,
         }));
@@ -337,7 +367,6 @@ const normalizeRoutines = (response) => {
           routines: uiRoutines,
           completedAt: new Date().toISOString(),
         };
-        this.writeDiscoveryResult(this.discoveryState);
         this.pushEvent('alexa-discovery-complete', this.discoveryState);
       } catch (error) {
         console.error(`Alexa discovery failed: ${error.message}`);
@@ -346,10 +375,13 @@ const normalizeRoutines = (response) => {
           message: error.message,
           completedAt: new Date().toISOString(),
         };
-        this.writeDiscoveryResult(this.discoveryState);
+      } finally {
+        remote?.stop?.();
+        if (this.activeRemote === remote) {
+          this.activeRemote = undefined;
+        }
       }
     }
-
   }
 
   new AlexaSmartHomePlusUiServer();

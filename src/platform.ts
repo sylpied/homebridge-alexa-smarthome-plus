@@ -155,10 +155,16 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
           'Alexa login cookie updated. Storing cookie in file:',
           this.cookiePersistPath,
         )();
-        fs.writeFileSync(
-          this.cookiePersistPath,
-          JSON.stringify({ cookieData }),
-        );
+        const temporaryPath = `${this.cookiePersistPath}.${process.pid}.tmp`;
+        try {
+          fs.writeFileSync(temporaryPath, JSON.stringify({ cookieData }), {
+            mode: 0o600,
+          });
+          fs.renameSync(temporaryPath, this.cookiePersistPath);
+          fs.chmodSync(this.cookiePersistPath, 0o600);
+        } finally {
+          fs.rmSync(temporaryPath, { force: true });
+        }
       }
     });
 
@@ -262,6 +268,20 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
       O.map(A.map((d) => d.trim())),
       O.getOrElse(constant(new Array<string>())),
     );
+    const deviceIds =
+      filterMode === 'include'
+        ? this.config.deviceIds?.map((id) => id.trim()) ?? []
+        : [];
+    const excludeDeviceIds =
+      filterMode === 'exclude'
+        ? this.config.excludeDeviceIds?.map((id) => id.trim()) ?? []
+        : [];
+    const configuredFilterCount =
+      filterMode === 'include' && deviceIds.length > 0
+        ? deviceIds.length
+        : filterMode === 'exclude' && excludeDeviceIds.length > 0
+        ? excludeDeviceIds.length
+        : deviceFilter.length;
     return pipe(
       this.alexaApi.getDevices(),
       TE.tapIO((devices) =>
@@ -283,16 +303,22 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
       ),
       TE.map(
         A.filter((d: SmartHomeDevice) =>
-          A.isEmpty(deviceFilter)
-            ? !excludeDevices.includes(d.displayName.trim())
-            : deviceFilter.includes(d.displayName.trim()),
+          filterMode === 'include'
+            ? deviceIds.length > 0
+              ? deviceIds.includes(d.id)
+              : deviceFilter.includes(d.displayName.trim())
+            : filterMode === 'exclude'
+            ? excludeDeviceIds.length > 0
+              ? !excludeDeviceIds.includes(d.id)
+              : !excludeDevices.includes(d.displayName.trim())
+            : true,
         ),
       ),
       TE.tapIO((devices) =>
-        devices.length === deviceFilter.length || A.isEmpty(deviceFilter)
-          ? this.log.debug(`Discovered ${deviceFilter.length} devices.`)
+        devices.length === configuredFilterCount || configuredFilterCount === 0
+          ? this.log.debug(`Discovered ${configuredFilterCount} devices.`)
           : this.log.warn(
-              `${deviceFilter.length} devices provided in settings but ${devices.length} matching ` +
+              `${configuredFilterCount} devices provided in settings but ${devices.length} matching ` +
                 'Alexa smart home devices were discovered.',
             ),
       ),
