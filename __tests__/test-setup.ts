@@ -63,6 +63,8 @@ global.createPlatformConfig = (): AlexaPlatformConfig => ({
   },
   performance: {
     cacheTTL: 30,
+    periodicStateRefresh: true,
+    periodicStateRefreshIntervalMinutes: 5,
   },
   disabledOperations: [],
   debug: true,

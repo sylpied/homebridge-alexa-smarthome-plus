@@ -25,6 +25,7 @@ After connecting an Amazon account, the plugin retrieves Alexa devices and routi
 - HomeKit-only aliases that do not rename Alexa devices
 - Japanese and English UI with automatic language selection
 - Inline authentication and discovery progress
+- Optional periodic state refresh (enabled by default) for devices changed by physical controls or other remotes
 - Alexa routines exposed as momentary HomeKit switches
 - An on/off fallback for otherwise unknown Alexa device types
 
@@ -62,6 +63,10 @@ The plugin evaluates both the Alexa device type and the operations reported for 
 | Alexa routine | Momentary switch | Run routine |
 
 Alexa integrations can report different capabilities for the same physical product, so available HomeKit controls may vary by account.
+
+### Periodic state refresh
+
+Some Alexa-connected devices do not send state events after a physical control or another remote changes them. With periodic state refresh enabled, the plugin checks at 10, 15, and 30 seconds, then 1, 3, 5, 10, and 15 minutes. It then continues at the configured steady interval. The default is 5 minutes, with 1, 3, 5, 10, 15, and 30 minute options. A HomeKit operation restarts the initial schedule. Requests for multiple devices are staggered, and temporary failures automatically back off up to 60 minutes.
 
 ### Hardware paths verified during development
 

@@ -1,4 +1,5 @@
 import * as A from 'fp-ts/Array';
+import * as E from 'fp-ts/Either';
 import * as IO from 'fp-ts/IO';
 import * as O from 'fp-ts/Option';
 import { Option } from 'fp-ts/Option';
@@ -26,6 +27,18 @@ export default abstract class BaseAccessory {
   readonly rangeFeatures: RangeFeatures;
 
   private lastUpdated: Date;
+  private consecutivePeriodicRefreshFailures = 0;
+  private initialPeriodicRefreshStaggerMs = 0;
+  private periodicRefreshGeneration = 0;
+  private periodicRefreshStep = 0;
+  private periodicRefreshTimer?: NodeJS.Timeout;
+  private stateRefreshListenersInstalled = false;
+
+  private static readonly PERIODIC_REFRESH_INITIAL_DELAYS_MS = [
+    10_000, 5_000, 15_000, 30_000, 120_000, 120_000, 300_000, 300_000,
+  ] as const;
+  private static readonly DEFAULT_PERIODIC_REFRESH_INTERVAL_MINUTES = 5;
+  private static readonly MAX_PERIODIC_REFRESH_BACKOFF_MS = 60 * 60_000;
 
   constructor(
     readonly platform: AlexaSmartHomePlatform,
@@ -67,6 +80,130 @@ export default abstract class BaseAccessory {
 
   setInitialized(initialized: boolean) {
     this._initialized = initialized;
+  }
+
+  startPeriodicStateRefresh(staggerMs = 0): void {
+    if (this.platform.config.performance?.periodicStateRefresh === false) {
+      return;
+    }
+
+    if (!this.stateRefreshListenersInstalled) {
+      this.service.characteristics
+        .filter((characteristic) =>
+          characteristic.props.perms.includes(
+            this.Characteristic.Perms.PAIRED_WRITE,
+          ),
+        )
+        .forEach((characteristic) =>
+          characteristic.on('change', ({ reason }) => {
+            if (reason === 'write') {
+              this.restartPeriodicStateRefresh();
+            }
+          }),
+        );
+      this.stateRefreshListenersInstalled = true;
+    }
+
+    this.initialPeriodicRefreshStaggerMs = Math.max(0, staggerMs);
+    this.restartPeriodicStateRefresh(this.initialPeriodicRefreshStaggerMs);
+  }
+
+  stopPeriodicStateRefresh(): void {
+    this.periodicRefreshGeneration += 1;
+    if (this.periodicRefreshTimer) {
+      clearTimeout(this.periodicRefreshTimer);
+      this.periodicRefreshTimer = undefined;
+    }
+  }
+
+  private restartPeriodicStateRefresh(staggerMs = 0): void {
+    this.stopPeriodicStateRefresh();
+    this.consecutivePeriodicRefreshFailures = 0;
+    this.periodicRefreshStep = 0;
+    this.scheduleNextPeriodicStateRefresh(staggerMs);
+  }
+
+  private scheduleNextPeriodicStateRefresh(staggerMs = 0): void {
+    const generation = this.periodicRefreshGeneration;
+    const initialDelay =
+      BaseAccessory.PERIODIC_REFRESH_INITIAL_DELAYS_MS[
+        this.periodicRefreshStep
+      ];
+    const steadyIntervalMs = this.getPeriodicRefreshIntervalMs();
+    const baseDelay = initialDelay ?? steadyIntervalMs;
+    const backoffDelay =
+      this.consecutivePeriodicRefreshFailures > 0
+        ? Math.min(
+            steadyIntervalMs * 2 ** this.consecutivePeriodicRefreshFailures,
+            BaseAccessory.MAX_PERIODIC_REFRESH_BACKOFF_MS,
+          )
+        : 0;
+    const delay = Math.max(baseDelay, backoffDelay) + staggerMs;
+
+    this.periodicRefreshTimer = setTimeout(() => {
+      void this.refreshStateFromAlexa()
+        .then((succeeded) => {
+          this.consecutivePeriodicRefreshFailures = succeeded
+            ? 0
+            : this.consecutivePeriodicRefreshFailures + 1;
+        })
+        .catch((error: unknown) => {
+          this.consecutivePeriodicRefreshFailures += 1;
+          this.logWithContext(
+            'debug',
+            `Unexpected periodic state refresh error: ${String(error)}`,
+          );
+        })
+        .finally(() => {
+          if (generation !== this.periodicRefreshGeneration) {
+            return;
+          }
+          this.periodicRefreshStep += 1;
+          this.scheduleNextPeriodicStateRefresh();
+        });
+    }, delay);
+    this.periodicRefreshTimer.unref?.();
+  }
+
+  private getPeriodicRefreshIntervalMs(): number {
+    const configuredMinutes =
+      this.platform.config.performance?.periodicStateRefreshIntervalMinutes ??
+      BaseAccessory.DEFAULT_PERIODIC_REFRESH_INTERVAL_MINUTES;
+    return Math.max(1, configuredMinutes) * 60_000;
+  }
+
+  private async refreshStateFromAlexa(): Promise<boolean> {
+    const result = await this.platform.alexaApi.getDeviceStateGraphQl(
+      this.device,
+      this.service,
+      false,
+    )();
+
+    if (E.isLeft(result)) {
+      this.logWithContext(
+        'debug',
+        'Periodic state refresh failed',
+        result.left,
+      );
+      return false;
+    }
+
+    this.lastUpdated = new Date();
+    for (const characteristic of this.service.characteristics) {
+      if (
+        !characteristic.props.perms.includes(
+          this.Characteristic.Perms.PAIRED_READ,
+        )
+      ) {
+        continue;
+      }
+      const value = await characteristic.handleGetRequest();
+      if (value !== null && value !== undefined) {
+        characteristic.updateValue(value);
+      }
+    }
+    this.logWithContext('debug', 'Periodic state refresh completed');
+    return true;
   }
 
   addAccessoryInfoService() {

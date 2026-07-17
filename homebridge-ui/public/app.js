@@ -33,7 +33,11 @@
       reauthenticateOnFailure: true,
       proxy: { clientHost: '', port: 9000 },
     },
-    performance: { cacheTTL: 60 },
+    performance: {
+      cacheTTL: 60,
+      periodicStateRefresh: true,
+      periodicStateRefreshIntervalMinutes: 5,
+    },
     disabledOperations: [],
     debug: false,
   };
@@ -206,6 +210,29 @@
           )}</label>
         </div>
         <div class="form-check asmp-field-wide">
+          <input id="periodic-state-refresh" type="checkbox" class="form-check-input">
+          <label for="periodic-state-refresh" class="form-check-label">${t(
+            'periodicStateRefresh',
+          )}</label>
+          <div class="form-text">${t('periodicStateRefreshHelp')}</div>
+        </div>
+        <div class="form-group asmp-field-wide">
+          <label for="periodic-state-refresh-interval" class="form-label">${t(
+            'periodicStateRefreshInterval',
+          )}</label>
+          <select id="periodic-state-refresh-interval" class="form-select">
+            ${[1, 3, 5, 10, 15, 30]
+              .map(
+                (minutes) =>
+                  `<option value="${minutes}">${minutes} ${t('minutes')}</option>`,
+              )
+              .join('')}
+          </select>
+          <div class="form-text">${t(
+            'periodicStateRefreshIntervalHelp',
+          )}</div>
+        </div>
+        <div class="form-check asmp-field-wide">
           <input id="debug" type="checkbox" class="form-check-input">
           <label for="debug" class="form-check-label">${t('debug')}</label>
         </div>
@@ -316,6 +343,26 @@
       config.auth.reauthenticateOnFailure,
       (el) => {
         config.auth.reauthenticateOnFailure = el.checked;
+        scheduleUpdate();
+      },
+      'change',
+    );
+    bind(
+      'periodic-state-refresh',
+      config.performance.periodicStateRefresh,
+      (el) => {
+        config.performance.periodicStateRefresh = el.checked;
+        scheduleUpdate();
+      },
+      'change',
+    );
+    bind(
+      'periodic-state-refresh-interval',
+      config.performance.periodicStateRefreshIntervalMinutes,
+      (el) => {
+        config.performance.periodicStateRefreshIntervalMinutes = Number(
+          el.value,
+        );
         scheduleUpdate();
       },
       'change',
@@ -1003,7 +1050,7 @@
         : config.uiLanguage;
     try {
       const response = await withTimeout(
-        fetch(`locales/${selected}.json?v=1.0.0-rc.3`),
+        fetch(`locales/${selected}.json?v=1.0.0-rc.9`),
         undefined,
       );
       translations = response?.ok ? await response.json() : {};
@@ -1018,6 +1065,8 @@
       [],
     );
     config = deepMerge(defaults, blocks[0] || {});
+    delete config.performance.experimentalAlexaStateRefresh;
+    delete config.performance.refreshAlexaDeviceListBeforeState;
     await loadTranslations();
     render();
 
@@ -1081,8 +1130,15 @@
       scheduleUpdate();
     });
 
-    // Existing authentication does not trigger an Alexa query merely by
-    // opening settings. The user can explicitly refresh when needed.
+    const cachedDiscovery = authentication?.discovery;
+    if (cachedDiscovery?.status === 'complete') {
+      applyDiscoveryResult(cachedDiscovery);
+    } else if (authentication?.authenticated) {
+      // Populate an empty settings session automatically once. Completed
+      // results held by the UI server are reused on later openings, while the
+      // refresh button remains available for an explicit up-to-date query.
+      void discoverAlexa();
+    }
   };
 
   let initializationStarted = false;

@@ -21,9 +21,7 @@ import { AlexaApiError, HttpError, TimeoutError } from '../domain/alexa/errors';
 import EndpointStateResponse, {
   extractStates,
 } from '../domain/alexa/get-device-state';
-import GetDeviceStatesResponse, {
-  ValidStatesByDevice,
-} from '../domain/alexa/get-device-states';
+import { ValidStatesByDevice } from '../domain/alexa/get-device-states';
 import {
   Endpoint,
   GetDevicesGraphQlResponse,
@@ -365,28 +363,6 @@ export class AlexaApiWrapper {
           ),
         ),
       ),
-    );
-  }
-
-  private queryDeviceStates(
-    entityIds: string[],
-    entityType: string,
-  ): TE.TaskEither<HttpError, GetDeviceStatesResponse> {
-    return TE.tryCatch(
-      () =>
-        AlexaApiWrapper.toPromise<GetDeviceStatesResponse>(
-          this.alexaRemote.querySmarthomeDevices.bind(
-            this.alexaRemote,
-            entityIds,
-            entityType as EntityType,
-          ),
-        ),
-      (reason) =>
-        new HttpError(
-          `Error getting smart home device state. Reason: ${
-            (reason as Error).message
-          }`,
-        ),
     );
   }
 
