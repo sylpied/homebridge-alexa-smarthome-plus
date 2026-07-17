@@ -19,7 +19,6 @@ import {
   PlatformConfig,
   Service,
 } from 'homebridge';
-import { match } from 'ts-pattern';
 import AccessoryFactory from './accessory/accessory-factory';
 import BaseAccessory from './accessory/base-accessory';
 import RoutineAccessory from './accessory/routine-accessory';
@@ -101,6 +100,13 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
       this.log,
       this.deviceStore,
     );
+    this.log.info(
+      `Periodic Alexa state refresh: ${
+        this.config.performance?.periodicStateRefresh === false
+          ? 'disabled'
+          : 'enabled'
+      }.`,
+    )();
 
     const handleAuthResult = flow(
       O.match(
@@ -136,6 +142,13 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
           ),
         );
       });
+    });
+
+    api.on('shutdown', () => {
+      this.accessoryHandlers.forEach((accessory) =>
+        accessory.stopPeriodicStateRefresh(),
+      );
+      this.alexaRemote.stop?.();
     });
   }
 
@@ -215,7 +228,10 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
             macDms: auth?.macDms,
             proxyOwnIp: this.config.auth.proxy.clientHost,
             proxyPort: this.config.auth.proxy.port,
-            logger: this.alexaRemoteLogger.bind(this),
+            // alexa-remote2 may include cookies, tokens, headers, account data,
+            // or complete response bodies in diagnostic messages. Runtime
+            // logging is intentionally limited to messages created here.
+            logger: () => undefined,
             proxyLogLevel: 'error',
             usePushConnectType: 3,
             useWsMqtt: false,
@@ -345,6 +361,12 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
       TE.of(devices),
       TE.flatMapIO(initUserConfiguredDevices),
       TE.map(flow(A.filterMap(identity), A.flatten)),
+      TE.tapIO((accessories) => () => {
+        this.accessoryHandlers = accessories;
+        accessories.forEach((accessory, index) =>
+          accessory.startPeriodicStateRefresh(index * 1_000),
+        );
+      }),
     );
   }
 
@@ -670,51 +692,5 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
           this.log.debug(`${device.displayName} ::: Current state: ${state}`),
         ),
       );
-  }
-
-  private alexaRemoteLogger(...args: unknown[]) {
-    return match(args[0])
-      .when(
-        (msg) =>
-          typeof msg !== 'string' ||
-          msg.trim().length === 0 ||
-          msg.startsWith('Alexa-Remote: No authentication check needed') ||
-          msg.startsWith('Alexa-Remote: Response') ||
-          msg.startsWith('Alexa-Remote: Sending Request') ||
-          msg.startsWith('Alexa-Remote: Use as') ||
-          msg.startsWith('Alexa-Cookie: Sending Request') ||
-          msg.startsWith('Alexa-Cookie: Headers') ||
-          msg.startsWith('Alexa-Cookie: Use as') ||
-          msg.startsWith('Alexa-Cookie: Cookies handled') ||
-          msg.startsWith('Alexa-Cookie: Proxy catched cookie') ||
-          msg.startsWith('Alexa-Cookie: Proxy catched parameters') ||
-          msg.startsWith('Alexa-Cookie: Modify headers') ||
-          msg.startsWith('Alexa-Cookie: Proxy') ||
-          msg.startsWith('Alexa-Cookie: Initial Page Request') ||
-          msg.startsWith('Final Registration Result') ||
-          msg.startsWith('[HPM]') ||
-          msg.startsWith('Proxy Init') ||
-          msg.startsWith('Router') ||
-          msg.startsWith('{'),
-        constVoid,
-      )
-      .when(
-        (msg) =>
-          typeof msg !== 'string' ||
-          msg.startsWith('Get User data Response') ||
-          msg.startsWith('Register App Response') ||
-          msg.startsWith('Exchange Token Response') ||
-          msg.startsWith('Handle token registration Start'),
-        (msg) =>
-          this.log.debug(
-            `Alexa-Cookie: ${(msg as string).substring(0, 250)}...`,
-          )(),
-      )
-      .otherwise((msg) => {
-        const params = args.slice(1);
-        params.length > 0
-          ? this.log.debug(msg as string, params)()
-          : this.log.debug(msg as string)();
-      });
   }
 }

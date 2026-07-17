@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-rc.9] - 2026-07-17
+
+### Removed
+
+- Remove both ineffective Alexa pre-refresh experiments after device testing showed that neither Phoenix state requests nor full endpoint-list retrieval caused Alexa's stale cloud state to update.
+
+### Fixed
+
+- Retain the Homebridge 2-compatible periodic characteristic update introduced during RC7 testing.
+- Populate the Alexa device and routine lists automatically when an authenticated settings session has no cached discovery result, while reusing completed results on later openings.
+
+## [1.0.0-rc.8] - 2026-07-17
+
+### Changed
+
+- Remove the unsupported Phoenix per-device refresh, which returned `TargetApplianceNotFoundException` for modern GraphQL endpoints.
+- Optionally refresh the complete Alexa endpoint list before individual state checks, wait three seconds, and then query the target device.
+- Share the full-list request between accessories and throttle it to at most once every five minutes.
+
+## [1.0.0-rc.7] - 2026-07-17
+
+### Fixed
+
+- Refresh HomeKit characteristics through the Homebridge 2 request handler instead of the removed runtime `getValue()` method.
+- Try the full Alexa endpoint ID for the experimental app-style refresh and fall back to the stripped device ID when rejected.
+- Include the sanitized Alexa rejection reason in debug logs without exposing response bodies or authentication data.
+
+## [1.0.0-rc.6] - 2026-07-17
+
+### Changed
+
+- Wait three seconds after a successful experimental refresh before reading state, allowing Alexa's cached state time to propagate.
+- Log the periodic and experimental refresh modes at Child Bridge startup so the effective configuration is unambiguous.
+
+## [1.0.0-rc.5] - 2026-07-16
+
+### Added
+
+- Add periodic Alexa state refresh, enabled by default, for devices that do not report physical or external-remote changes.
+- Refresh after 10, 15, and 30 seconds, then 1, 3, 5, 10, and 15 minutes, continuing at a configurable 1, 3, 5, 10, 15, or 30 minute interval (default: 5 minutes).
+- Restart the refresh schedule after a HomeKit write.
+- Stagger requests for multiple devices and apply automatic backoff after temporary failures.
+- Add an opt-in experimental Alexa app-style state refresh with automatic fallback to the standard query.
+
+### Security
+
+- Suppress all raw `alexa-remote2` runtime diagnostic output.
+- Remove the unused direct `uuid` dependency.
+
 ## [1.0.0-rc.4] - 2026-07-13
 
 ### Fixed

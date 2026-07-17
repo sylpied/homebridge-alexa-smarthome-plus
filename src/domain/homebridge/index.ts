@@ -40,6 +40,8 @@ export interface AlexaPlatformConfig extends PlatformConfig {
   };
   performance: Nullable<{
     cacheTTL: Nullable<number>;
+    periodicStateRefresh?: Nullable<boolean>;
+    periodicStateRefreshIntervalMinutes?: Nullable<number>;
   }>;
   disabledOperations: Nullable<
     Array<{
