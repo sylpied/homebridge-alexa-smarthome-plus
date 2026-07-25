@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-07-25
+
+### Changed
+
+- Promote the device-tested RC9 implementation to the first stable release.
+
+### Fixed
+
+- Remove the development-only Husky `prepare` script from the published package so Homebridge installations no longer request install-script approval.
+
 ## [1.0.0-rc.9] - 2026-07-17
 
 ### Removed
