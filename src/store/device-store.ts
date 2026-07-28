@@ -21,6 +21,11 @@ export interface DeviceStatesCache {
   states: ValidStatesByDevice;
 }
 
+export type DeviceStateListener = (
+  deviceId: string,
+  states: CapabilityState[],
+) => void;
+
 export default class DeviceStore {
   public readonly cacheTTL: number;
   public readonly cache: DeviceStatesCache = {
@@ -29,6 +34,7 @@ export default class DeviceStore {
   };
 
   private _deviceCapabilities: RangeFeaturesByDevice = {};
+  private readonly stateListeners = new Set<DeviceStateListener>();
 
   constructor(performanceSettings?: AlexaPlatformConfig['performance']) {
     const cacheTTL = getOrElseNullable(
@@ -104,6 +110,7 @@ export default class DeviceStore {
         this.cache.lastUpdated = new Date();
       }),
     );
+    deviceIds.forEach((deviceId) => this.notifyStateListeners(deviceId));
     return this.cache.states;
   }
 
@@ -115,7 +122,18 @@ export default class DeviceStore {
         return O.of(cs);
       }),
     );
+    this.notifyStateListeners(deviceId);
     return this.cache.states;
+  }
+
+  subscribeToStateUpdates(listener: DeviceStateListener): () => void {
+    this.stateListeners.add(listener);
+    return () => this.stateListeners.delete(listener);
+  }
+
+  private notifyStateListeners(deviceId: string): void {
+    const states = this.getCacheStatesForDevice(deviceId);
+    this.stateListeners.forEach((listener) => listener(deviceId, states));
   }
 
   isCacheFresh = () =>

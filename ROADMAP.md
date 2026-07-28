@@ -34,12 +34,19 @@
 - [ ] 入力一覧を取得できる機器の入力切替
 - [ ] Echo スピーカーの再生制御
 
+## Matter
+
+- [x] Homebridge 2のMatter Bridgeへ選択済みAlexa機器を公開
+- [x] 照明、スマートロック、スマートプラグ、電源スイッチの能力ベース変換
+- [x] 既存のAlexa認証、検出、操作、状態キャッシュ、定期確認を共用
+- [ ] センサー、空調、ファンなど追加機器種別のMatter変換
+
 ## Later / investigation required
 
 - Camera streaming
 - 複数 Amazon アカウント
 - Alexa イベントのリアルタイム HomeKit 反映
-- Matter 機器固有能力の変換
+- Matter 複合機器とメーカー固有能力の変換
 
 ## Authentication policy
 

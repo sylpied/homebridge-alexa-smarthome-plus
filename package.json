@@ -1,7 +1,7 @@
 {
   "displayName": "Alexa Smart Home Plus",
   "name": "homebridge-alexa-smarthome-plus",
-  "version": "1.0.0",
+  "version": "1.1.0-rc.2",
   "description": "An independently maintained Homebridge plugin for controlling Alexa smart home devices from HomeKit.",
   "license": "MIT",
   "author": "Alexa Smart Home Plus contributors",
@@ -37,6 +37,7 @@
     "homekit",
     "alexa",
     "echo",
+    "matter",
     "smarthome"
   ],
   "dependencies": {
@@ -62,7 +63,7 @@
     "eslint": "^8.48.0",
     "eslint-config-prettier": "^8.10.0",
     "eslint-plugin-prettier": "^4.2.1",
-    "homebridge": "^1.11.0",
+    "homebridge": "^2.1.1",
     "homebridge-config-ui-x": "^5.10.0",
     "husky": "^8.0.3",
     "jest": "^29.7.0",
@@ -73,6 +74,6 @@
     "rimraf": "^4.4.1",
     "ts-jest": "^29.3.1",
     "ts-node": "^10.9.2",
-    "typescript": "^4.9.5"
+    "typescript": "^5.9.3"
   }
 }

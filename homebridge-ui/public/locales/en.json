@@ -61,7 +61,7 @@
   "periodicStateRefresh": "Periodically refresh device states",
   "periodicStateRefreshHelp": "Recommended. Detects changes made by physical controls or other remotes. Checks are frequent after an operation and then continue at the selected interval.",
   "periodicStateRefreshInterval": "Steady state refresh interval",
-  "periodicStateRefreshIntervalHelp": "The default is 5 minutes. Requests for multiple devices are staggered, and temporary failures automatically extend the interval up to 60 minutes.",
+  "periodicStateRefreshIntervalHelp": "The default is 5 minutes. Requests for multiple devices are staggered, and temporary failures automatically extend the interval up to 60 minutes. If an Alexa integration does not provide current state or returns a stale value, the displayed state may differ from the physical device.",
   "minutes": "minutes",
   "add": "Add",
   "remove": "Remove",

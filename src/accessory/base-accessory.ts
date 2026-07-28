@@ -6,7 +6,7 @@ import { Option } from 'fp-ts/Option';
 import * as TE from 'fp-ts/TaskEither';
 import { TaskEither } from 'fp-ts/TaskEither';
 import { identity, pipe } from 'fp-ts/lib/function';
-import { Characteristic, PlatformAccessory, Service } from 'homebridge';
+import { Characteristic, Perms, PlatformAccessory, Service } from 'homebridge';
 import { match } from 'ts-pattern';
 import { CapabilityState } from '../domain/alexa';
 import { AlexaApiError, InvalidResponse } from '../domain/alexa/errors';
@@ -91,7 +91,7 @@ export default abstract class BaseAccessory {
       this.service.characteristics
         .filter((characteristic) =>
           characteristic.props.perms.includes(
-            this.Characteristic.Perms.PAIRED_WRITE,
+            Perms.PAIRED_WRITE,
           ),
         )
         .forEach((characteristic) =>
@@ -192,7 +192,7 @@ export default abstract class BaseAccessory {
     for (const characteristic of this.service.characteristics) {
       if (
         !characteristic.props.perms.includes(
-          this.Characteristic.Perms.PAIRED_READ,
+          Perms.PAIRED_READ,
         )
       ) {
         continue;

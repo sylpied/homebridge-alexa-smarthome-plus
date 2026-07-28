@@ -1,6 +1,6 @@
 # Alexa Smart Home Plus
 
-Alexa Smart Home Plus lets you choose devices already connected to Alexa and bring them into Apple Home through Homebridge.
+Alexa Smart Home Plus lets you choose devices already connected to Alexa and bring them into Apple Home through Homebridge. On Homebridge 2, supported devices can also be exposed through the same child bridge as Matter accessories.
 
 Amazon sign-in, discovery, selection, and naming are handled in the Homebridge settings screen, so the initial setup does not require hand-editing JSON.
 
@@ -28,6 +28,7 @@ After connecting an Amazon account, the plugin retrieves Alexa devices and routi
 - Optional periodic state refresh (enabled by default) for devices changed by physical controls or other remotes
 - Alexa routines exposed as momentary HomeKit switches
 - An on/off fallback for otherwise unknown Alexa device types
+- Optional Matter projection on Homebridge 2 for lights, locks, outlets, and switches
 
 ## First-run journey
 
@@ -64,9 +65,37 @@ The plugin evaluates both the Alexa device type and the operations reported for 
 
 Alexa integrations can report different capabilities for the same physical product, so available HomeKit controls may vary by account.
 
+## Matter support (Homebridge 2)
+
+Matter support reuses the same authenticated Alexa connection, discovered endpoints, command methods, and state cache used by HomeKit. It does not create another Amazon session or a second polling loop.
+
+### Enable Matter
+
+If Alexa authentication and HomeKit device selection are already complete, Matter reuses that configuration; you do not need to authenticate or select the devices again. Only new installations need to complete Alexa authentication, device selection, and configuration saving first.
+
+1. Enable Matter for the Alexa Smart Home Plus Child Bridge in Homebridge UI.
+2. Restart that Child Bridge.
+3. Follow the Matter commissioning information shown by Homebridge to add the bridge to a compatible Matter controller.
+
+Compatible selected endpoints are registered automatically. Matter uses the same selection and HomeKit-specific aliases as the HomeKit accessories; there is no second Alexa device list to maintain.
+
+| Alexa capability | Matter device type |
+|---|---|
+| Power-only light | On/Off Light |
+| Dimmable or color-capable light | Dimmable, Color Temperature, or Extended Color Light |
+| Smart lock | Door Lock |
+| Smart plug | On/Off Plug-in Unit |
+| Other safe power endpoint | On/Off Switch |
+
+The Matter projection currently covers power, brightness, color temperature, color, and lock operations when Alexa reports the corresponding capabilities. State changes flow through the existing shared Alexa state cache and periodic refresh mechanism.
+
+Homebridge 1 continues to publish the existing HomeKit accessories and simply skips the Matter layer. Matter commissioning and supported controller behavior depend on Homebridge 2 and the controller ecosystem. Sensors, thermostats, fans, routines, cameras, and Alexa-specific capabilities are not yet projected to Matter. Publishing the same physical device through both HomeKit and Matter can make it appear twice in an ecosystem that imports both paths; choose the path that best fits that controller.
+
 ### Periodic state refresh
 
 Some Alexa-connected devices do not send state events after a physical control or another remote changes them. With periodic state refresh enabled, the plugin checks at 10, 15, and 30 seconds, then 1, 3, 5, 10, and 15 minutes. It then continues at the configured steady interval. The default is 5 minutes, with 1, 3, 5, 10, 15, and 30 minute options. A HomeKit operation restarts the initial schedule. Requests for multiple devices are staggered, and temporary failures automatically back off up to 60 minutes.
+
+Not every Alexa-connected endpoint supports retrieval of its current state. Depending on the device and integration, a state query can return an unchanged or stale value, or no state information at all. In that case, the state displayed through HomeKit or Matter may differ from the physical device. Periodic refresh reflects the state reported by Alexa; it cannot force an Alexa integration to refresh a value that Alexa itself has not updated.
 
 ### Hardware paths verified during development
 
@@ -101,7 +130,7 @@ After authentication, the Alexa session material required for later requests is 
 
 ## Runtime support
 
-- Homebridge 1.x and 2.x
+- Homebridge 1.x and 2.x for HomeKit; Homebridge 2.1.1 or later for Matter
 - Node.js 18, 20, 22, and 24
 - Homebridge Config UI X is recommended for first-run setup
 

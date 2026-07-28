@@ -242,7 +242,7 @@
           },
           "periodicStateRefreshIntervalMinutes": {
             "title": "Steady state refresh interval",
-            "description": "After the initial post-start or post-operation checks, query each device at this interval. Requests for multiple devices are staggered. Temporary failures automatically increase the interval up to 60 minutes.",
+            "description": "After the initial post-start or post-operation checks, query each device at this interval. Requests for multiple devices are staggered. Temporary failures automatically increase the interval up to 60 minutes. If Alexa does not provide current state or returns a stale value for a device, the displayed state may differ from the physical device.",
             "type": "integer",
             "required": false,
             "enum": [1, 3, 5, 10, 15, 30],

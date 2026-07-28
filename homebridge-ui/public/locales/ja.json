@@ -61,7 +61,7 @@
   "periodicStateRefresh": "機器の状態を定期的に確認する",
   "periodicStateRefreshHelp": "推奨設定です。物理操作や別のリモコンによる変更を検出します。操作後は短い間隔で確認し、その後は指定した間隔で継続します。",
   "periodicStateRefreshInterval": "定常時の状態確認間隔",
-  "periodicStateRefreshIntervalHelp": "初期値は5分です。複数機器の問い合わせは分散され、一時障害時は最大60分まで自動的に間隔を延長します。",
+  "periodicStateRefreshIntervalHelp": "初期値は5分です。複数機器の問い合わせは分散され、一時障害時は最大60分まで自動的に間隔を延長します。Alexaが状態取得に対応していない機器や古い値を返す機器では、表示と実機の状態が異なる場合があります。",
   "minutes": "分",
   "add": "追加",
   "remove": "削除",

@@ -1,6 +1,6 @@
 import * as E from 'fp-ts/Either';
 import * as TE from 'fp-ts/TaskEither';
-import * as hapNodeJs from 'hap-nodejs';
+import * as hapNodeJs from '@homebridge/hap-nodejs';
 import type { API } from 'homebridge';
 import { ValidationError } from './domain/homebridge/errors';
 import { AlexaSmartHomePlatform } from './platform';

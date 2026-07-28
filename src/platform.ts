@@ -15,6 +15,7 @@ import {
   Characteristic,
   DynamicPlatformPlugin,
   Logger,
+  type MatterAccessory,
   PlatformAccessory,
   PlatformConfig,
   Service,
@@ -27,6 +28,7 @@ import { SmartHomeDevice } from './domain/alexa/get-devices';
 import { AlexaRoutine } from './domain/alexa/routine';
 import { AlexaPlatformConfig } from './domain/homebridge';
 import { mapAlexaDeviceToHomeKitAccessoryInfos } from './mapper';
+import { AlexaMatterBridge } from './matter/matter-bridge';
 import * as settings from './settings';
 import DeviceStore from './store/device-store';
 import * as util from './util';
@@ -46,6 +48,7 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
   public readonly alexaRemote: AlexaRemote;
   public readonly alexaApi: AlexaApiWrapper;
   public readonly deviceStore: DeviceStore;
+  public readonly matterBridge: AlexaMatterBridge;
 
   public cachedAccessories: PlatformAccessory[] = [];
   public accessoryHandlers: BaseAccessory[] = [];
@@ -100,6 +103,13 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
       this.log,
       this.deviceStore,
     );
+    this.matterBridge = new AlexaMatterBridge(
+      this.api,
+      this.alexaApi,
+      this.deviceStore,
+      this.Service,
+      this.log,
+    );
     this.log.info(
       `Periodic Alexa state refresh: ${
         this.config.performance?.periodicStateRefresh === false
@@ -124,6 +134,9 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
         pipe(
           TE.rightIO(handleAuthResult(maybeError)),
           TE.flatMap(this.findDevices.bind(this)),
+          TE.tap((devices: SmartHomeDevice[]) =>
+            this.syncMatterDevices(devices),
+          ),
           TE.flatMap(this.initDevices.bind(this)),
           TE.flatMap((deviceAccessories) =>
             pipe(
@@ -148,6 +161,7 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
       this.accessoryHandlers.forEach((accessory) =>
         accessory.stopPeriodicStateRefresh(),
       );
+      this.matterBridge?.stop();
       this.alexaRemote.stop?.();
     });
   }
@@ -155,6 +169,33 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
   configureAccessory(accessory: PlatformAccessory) {
     this.log.debug('Loading accessory from cache:', accessory.displayName)();
     this.cachedAccessories.push(accessory);
+  }
+
+  configureMatterAccessory(accessory: MatterAccessory): void {
+    this.log.debug(
+      'Loading Matter accessory from cache:',
+      accessory.displayName,
+    )();
+    this.matterBridge?.configureAccessory(accessory);
+  }
+
+  private syncMatterDevices(
+    devices: SmartHomeDevice[],
+  ): TE.TaskEither<never, void> {
+    return TE.fromTask(async () => {
+      try {
+        await this.matterBridge.syncDevices(
+          devices.map((device) => this.prepareDevice(device)),
+        );
+      } catch (reason) {
+        this.log.errorT(
+          'Matter accessories were skipped; HomeKit initialization will continue.',
+          new HttpError(
+            `Matter initialization failed. Reason: ${String(reason)}`,
+          ),
+        )();
+      }
+    });
   }
 
   initAlexaRemote(
@@ -459,26 +500,6 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
   initAccessories(
     device: SmartHomeDevice,
   ): IOEither<AlexaDeviceError, BaseAccessory[]> {
-    const disabledOperationsMap = pipe(
-      O.fromNullable(this.config.disabledOperations),
-      O.getOrElse(
-        constant([] as { deviceName: string; operations?: string | null }[]),
-      ),
-      A.map(
-        ({ deviceName, operations }) =>
-          [deviceName.trim(), operations] as const,
-      ),
-      A.reduce(new Map<string, string[]>(), (map, [name, ops]) => {
-        map.set(
-          name,
-          ops
-            ?.split(',')
-            .map((o) => o.trim())
-            .filter((o) => o.length > 0) ?? [],
-        );
-        return map;
-      }),
-    );
     return pipe(
       E.bindTo('entityId')(util.extractEntityId(device.id)),
       E.bind('hbAccessories', ({ entityId }) =>
@@ -509,19 +530,10 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
         pipe(
           hkDevices,
           A.traverse(IOE.ApplicativeSeq)((hbAcc) => {
-            const newDevice = {
-              ...device,
-              displayName: util.resolveHomeKitDeviceName(
-                device.displayName,
-                getOrElse(hbAcc.altDeviceName, constant(device.displayName)),
-                this.config.deviceAliases,
-              ),
-              supportedOperations: device.supportedOperations.filter((op) => {
-                const disabled =
-                  disabledOperationsMap.get(device.displayName.trim()) ?? [];
-                return !disabled.includes(op);
-              }),
-            };
+            const newDevice = this.prepareDevice(
+              device,
+              getOrElse(hbAcc.altDeviceName, constant(device.displayName)),
+            );
             return pipe(
               O.bindTo('platAcc')(hbAcc.maybeCachedAcc),
               O.fold(
@@ -539,6 +551,33 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
         ),
       ),
     );
+  }
+
+  private prepareDevice(
+    device: SmartHomeDevice,
+    alternateName = device.displayName,
+  ): SmartHomeDevice {
+    const disabled =
+      this.config.disabledOperations
+        ?.find(
+          ({ deviceName }) =>
+            deviceName.trim() === device.displayName.trim(),
+        )
+        ?.operations?.split(',')
+        .map((operation) => operation.trim())
+        .filter(Boolean) ?? [];
+
+    return {
+      ...device,
+      displayName: util.resolveHomeKitDeviceName(
+        device.displayName,
+        alternateName,
+        this.config.deviceAliases,
+      ),
+      supportedOperations: device.supportedOperations.filter(
+        (operation) => !disabled.includes(operation),
+      ),
+    };
   }
 
   private restoreExistingAccessory(

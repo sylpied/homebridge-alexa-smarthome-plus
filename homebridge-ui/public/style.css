@@ -1,4 +1,5 @@
 .asmp-shell {
+  color: var(--bs-body-color, inherit);
   padding: 0.25rem;
 }
 
@@ -120,6 +121,48 @@
   max-width: 45%;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+html[data-bs-theme='dark'] .asmp-shell,
+body.dark-mode .asmp-shell,
+.dark-mode .asmp-shell {
+  color: #f1f3f5;
+}
+
+html[data-bs-theme='dark'] .asmp-shell .text-muted,
+html[data-bs-theme='dark'] .asmp-shell .form-text,
+html[data-bs-theme='dark'] .asmp-shell .asmp-help,
+body.dark-mode .asmp-shell .text-muted,
+body.dark-mode .asmp-shell .form-text,
+body.dark-mode .asmp-shell .asmp-help,
+.dark-mode .asmp-shell .text-muted,
+.dark-mode .asmp-shell .form-text,
+.dark-mode .asmp-shell .asmp-help {
+  color: #adb5bd !important;
+}
+
+html[data-bs-theme='dark'] .asmp-security-note,
+body.dark-mode .asmp-security-note,
+.dark-mode .asmp-security-note {
+  background: #2b2b2b;
+  color: #f1f3f5;
+}
+
+@media (prefers-color-scheme: dark) {
+  .asmp-shell {
+    color: #f1f3f5;
+  }
+
+  .asmp-shell .text-muted,
+  .asmp-shell .form-text,
+  .asmp-shell .asmp-help {
+    color: #adb5bd !important;
+  }
+
+  .asmp-security-note {
+    background: #2b2b2b;
+    color: #f1f3f5;
+  }
 }
 
 @media (max-width: 640px) {

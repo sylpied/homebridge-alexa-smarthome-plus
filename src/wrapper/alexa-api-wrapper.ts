@@ -127,7 +127,7 @@ export class AlexaApiWrapper {
 
   getDeviceStateGraphQl(
     device: SmartHomeDevice,
-    service: Service,
+    service: Pick<Service, 'UUID'>,
     useCache: boolean,
   ): TaskEither<AlexaApiError, [boolean, CapabilityState[]]> {
     const {

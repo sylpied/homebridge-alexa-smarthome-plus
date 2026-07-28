@@ -1,33 +1,41 @@
 /* eslint-disable no-var */
 import { constant } from 'fp-ts/lib/function';
-import { HomebridgeAPI } from 'homebridge/lib/api';
-import { Logger } from 'homebridge/lib/logger';
+import type { API, Logger } from 'homebridge';
+import * as hapNodeJs from '@homebridge/hap-nodejs';
 import { AlexaPlatformConfig } from '../src/domain/homebridge';
 import { AlexaSmartHomePlatform } from '../src/platform';
 import { SmartHomeDevice } from '../src/domain/alexa/get-devices';
 import DeviceStore from '../src/store/device-store';
 
-jest.mock('homebridge/lib/logger', () => ({
-  Logger: jest.fn().mockImplementation(() => ({
-    log: jest.fn(),
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    errorT: jest.fn(),
-  })),
-}));
-
 afterEach(() => {
   jest.clearAllMocks();
 });
 
-global.MockLogger = new Logger();
+global.MockLogger = {
+  log: jest.fn(),
+  debug: jest.fn(),
+  info: jest.fn(),
+  success: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+} as unknown as Logger;
 
 global.TEST_UUID = 'd3588548-bbbb-4c95-b60d-57fea062ca5b';
 
 global.createPlatform = (): AlexaSmartHomePlatform => {
-  const api = new HomebridgeAPI();
+  class TestPlatformAccessory extends hapNodeJs.Accessory {
+    context: Record<string, unknown> = {};
+  }
+
+  const api = {
+    hap: hapNodeJs,
+    platformAccessory: TestPlatformAccessory,
+    on: jest.fn(),
+    user: { persistPath: () => '.' },
+    registerPlatformAccessories: jest.fn(),
+    unregisterPlatformAccessories: jest.fn(),
+    updatePlatformAccessories: jest.fn(),
+  } as unknown as API;
   api.hap.uuid.generate = constant(TEST_UUID);
   const config = global.createPlatformConfig();
   const platform = new AlexaSmartHomePlatform(global.MockLogger, config, api);
