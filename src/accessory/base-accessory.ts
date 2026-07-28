@@ -90,9 +90,7 @@ export default abstract class BaseAccessory {
     if (!this.stateRefreshListenersInstalled) {
       this.service.characteristics
         .filter((characteristic) =>
-          characteristic.props.perms.includes(
-            Perms.PAIRED_WRITE,
-          ),
+          characteristic.props.perms.includes(Perms.PAIRED_WRITE),
         )
         .forEach((characteristic) =>
           characteristic.on('change', ({ reason }) => {
@@ -190,11 +188,7 @@ export default abstract class BaseAccessory {
 
     this.lastUpdated = new Date();
     for (const characteristic of this.service.characteristics) {
-      if (
-        !characteristic.props.perms.includes(
-          Perms.PAIRED_READ,
-        )
-      ) {
+      if (!characteristic.props.perms.includes(Perms.PAIRED_READ)) {
         continue;
       }
       const value = await characteristic.handleGetRequest();

@@ -560,8 +560,7 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
     const disabled =
       this.config.disabledOperations
         ?.find(
-          ({ deviceName }) =>
-            deviceName.trim() === device.displayName.trim(),
+          ({ deviceName }) => deviceName.trim() === device.displayName.trim(),
         )
         ?.operations?.split(',')
         .map((operation) => operation.trim())

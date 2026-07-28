@@ -62,9 +62,8 @@ test('reuses Alexa commands and cached state for a Matter switch', async () => {
   await bridge.syncDevices([device]);
 
   expect(matter.registerPlatformAccessories).toHaveBeenCalledTimes(1);
-  const accessory = (
-    matter.registerPlatformAccessories as jest.Mock
-  ).mock.calls[0][2][0] as MatterAccessory;
+  const accessory = (matter.registerPlatformAccessories as jest.Mock).mock
+    .calls[0][2][0] as MatterAccessory;
   await accessory.handlers?.onOff?.on?.({}, undefined);
   expect(setDeviceStateGraphQl).toHaveBeenCalledWith(
     device.endpointId,
@@ -125,9 +124,7 @@ test('keeps the replacement active when a device changes Matter type', async () 
   );
 
   store.updateCache([device.id], {
-    [device.id]: O.some([
-      E.right({ featureName: 'power', value: 'ON' }),
-    ]),
+    [device.id]: O.some([E.right({ featureName: 'power', value: 'ON' })]),
   });
   await Promise.resolve();
   expect(matter.updateAccessoryState).toHaveBeenLastCalledWith(

@@ -1,10 +1,5 @@
 import * as E from 'fp-ts/Either';
-import type {
-  API,
-  MatterAccessory,
-  MatterAPI,
-  Service,
-} from 'homebridge';
+import type { API, MatterAccessory, MatterAPI, Service } from 'homebridge';
 import { CapabilityState } from '../domain/alexa';
 import { SmartHomeDevice } from '../domain/alexa/get-devices';
 import * as lightMapper from '../mapper/light-mapper';
@@ -32,10 +27,7 @@ type AlexaMatterAccessory = MatterAccessory<AlexaMatterContext>;
  * stack; this class only translates those capabilities to Matter.
  */
 export class AlexaMatterBridge {
-  private readonly cachedAccessories = new Map<
-    string,
-    AlexaMatterAccessory
-  >();
+  private readonly cachedAccessories = new Map<string, AlexaMatterAccessory>();
   private readonly activeAccessories = new Map<
     string,
     {
@@ -54,12 +46,13 @@ export class AlexaMatterBridge {
     private readonly service: typeof Service,
     private readonly log: PluginLogger,
   ) {
-    this.unsubscribeFromStateUpdates =
-      this.deviceStore.subscribeToStateUpdates((deviceId, states) => {
+    this.unsubscribeFromStateUpdates = this.deviceStore.subscribeToStateUpdates(
+      (deviceId, states) => {
         if (!this.commandsInFlight.has(deviceId)) {
           void this.updateMatterState(deviceId, states);
         }
-      });
+      },
+    );
   }
 
   configureAccessory(accessory: MatterAccessory): void {
@@ -92,16 +85,9 @@ export class AlexaMatterBridge {
         `alexa-matter:${device.id}:${capability.kind}`,
       );
       activeUuids.add(uuid);
-      const configured = this.createAccessory(
-        matter,
-        device,
-        capability,
-        uuid,
-      );
+      const configured = this.createAccessory(matter, device, capability, uuid);
       const cached = this.cachedAccessories.get(uuid);
-      const accessory = cached
-        ? Object.assign(cached, configured)
-        : configured;
+      const accessory = cached ? Object.assign(cached, configured) : configured;
 
       this.activeAccessories.set(device.id, {
         accessory,
@@ -110,9 +96,7 @@ export class AlexaMatterBridge {
       });
       if (cached) {
         await matter.updatePlatformAccessories([accessory]);
-        this.log.debug(
-          `Restored Matter accessory: ${device.displayName}`,
-        )();
+        this.log.debug(`Restored Matter accessory: ${device.displayName}`)();
       } else {
         await matter.registerPlatformAccessories(
           settings.PLUGIN_NAME,
@@ -272,20 +256,14 @@ export class AlexaMatterBridge {
         ...(capability.color
           ? {
               moveToHueAndSaturationLogic: ({ hue, saturation }) =>
-                this.runColorCommand(
-                  device,
-                  Number(hue),
-                  Number(saturation),
-                ),
+                this.runColorCommand(device, Number(hue), Number(saturation)),
               moveToHueLogic: ({ targetHue }) =>
                 this.runColorCommand(device, Number(targetHue), 254),
             }
           : {}),
         ...(capability.colorTemperature
           ? {
-              moveToColorTemperatureLogic: ({
-                colorTemperatureMireds,
-              }) =>
+              moveToColorTemperatureLogic: ({ colorTemperatureMireds }) =>
                 this.runColorTemperatureCommand(
                   device,
                   Number(colorTemperatureMireds),
@@ -444,9 +422,7 @@ export class AlexaMatterBridge {
     }
   }
 
-  private async unwrap<T>(
-    result: Promise<E.Either<Error, T>>,
-  ): Promise<T> {
+  private async unwrap<T>(result: Promise<E.Either<Error, T>>): Promise<T> {
     const resolved = await result;
     if (E.isLeft(resolved)) {
       throw resolved.left;
@@ -539,20 +515,16 @@ export class AlexaMatterBridge {
       updates.push(
         matter.updateAccessoryState(accessory.UUID, 'doorLock', {
           lockState:
-            lock.value === 'LOCKED'
-              ? 1
-              : lock.value === 'UNLOCKED'
-              ? 2
-              : 0,
+            lock.value === 'LOCKED' ? 1 : lock.value === 'UNLOCKED' ? 2 : 0,
         }),
       );
     }
 
     await Promise.all(updates).catch((error: unknown) => {
       this.log.debug(
-        `Matter state update failed for "${active.device.displayName}": ${String(
-          error,
-        )}`,
+        `Matter state update failed for "${
+          active.device.displayName
+        }": ${String(error)}`,
       )();
     });
   }

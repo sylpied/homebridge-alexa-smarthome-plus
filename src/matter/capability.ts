@@ -23,10 +23,7 @@ const supports = (device: SmartHomeDevice, ...operations: string[]) =>
 export const detectMatterCapability = (
   device: SmartHomeDevice,
 ): MatterCapability | undefined => {
-  if (
-    device.deviceType === 'SMARTLOCK' &&
-    supports(device, 'lock', 'unlock')
-  ) {
+  if (device.deviceType === 'SMARTLOCK' && supports(device, 'lock', 'unlock')) {
     return {
       kind: 'lock',
       brightness: false,
@@ -49,8 +46,9 @@ export const detectMatterCapability = (
       kind: 'light',
       brightness: device.supportedOperations.includes('setBrightness'),
       color: device.supportedOperations.includes('setColor'),
-      colorTemperature:
-        device.supportedOperations.includes('setColorTemperature'),
+      colorTemperature: device.supportedOperations.includes(
+        'setColorTemperature',
+      ),
     };
   }
 
