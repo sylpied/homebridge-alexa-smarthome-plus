@@ -140,10 +140,13 @@ AmazonのユーザーID、パスワード、MFAコードをプラグイン設定
 ```bash
 npm ci
 npm run verify
+npm run verify:release-target
 npm pack --dry-run --ignore-scripts
 ```
 
 `verify`は単体テスト、Lint、TypeScriptビルドを順番に実行します。Amazonアカウントが必要な実機テストは通常の単体テストから分離しています。
+
+公開先確認では、npmパッケージのリポジトリ情報、`origin`のpush URL、現在のブランチの追跡先、任意で登録した`upstream`が取得専用になっていることを検査します。共有pre-pushフックは`sylpied/homebridge-alexa-smarthome-plus`以外へのpushを拒否します。開発用チェックアウトでは`git config core.hooksPath .husky`を設定してフックを有効にしてください。
 
 ## プロジェクトについて
 

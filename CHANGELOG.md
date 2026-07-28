@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Make custom configuration UI help text readable in Homebridge dark mode.
 - Prevent stale cached Matter accessories from removing an active replacement when an Alexa device changes its Matter type.
 - Restrict Jest discovery to the source tree so release verification completes without scanning unrelated workspace files.
+- Reject Git pushes and npm release preparation when the destination is not `sylpied/homebridge-alexa-smarthome-plus`, and keep the upstream source repository fetch-only.
 
 ## [1.0.0] - 2026-07-25
 

@@ -23,12 +23,13 @@
     "format": "prettier --ignore-path .gitignore --write \"src/**/*.ts\"",
     "lint": "eslint src/**.ts --max-warnings=0",
     "pre-commit": "lint-staged",
-    "prepublishOnly": "npm run verify",
+    "prepublishOnly": "npm run verify:release-target && npm run verify",
     "watch": "npm run build && nodemon",
     "test": "jest --verbose --silent=false --runInBand",
     "test-watch": "nodemon --config ./nodemon-test.json",
     "test-ci": "jest --verbose --silent=true --runInBand",
     "verify": "npm test && npm run lint && npm run build",
+    "verify:release-target": "node scripts/verify-release-target.cjs",
     "upgrade": "npm-check-updates --target minor --upgrade"
   },
   "keywords": [

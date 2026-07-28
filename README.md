@@ -139,10 +139,13 @@ After authentication, the Alexa session material required for later requests is 
 ```bash
 npm ci
 npm run verify
+npm run verify:release-target
 npm pack --dry-run --ignore-scripts
 ```
 
 `verify` runs unit tests, linting, and the production TypeScript build. Tests that require a real Amazon account are kept separate from the normal unit-test run.
+
+The release-target check verifies the npm package metadata, the `origin` push URL, the current branch tracking remote, and fetch-only protection for an optional `upstream` remote. The shared pre-push hook rejects every destination except `sylpied/homebridge-alexa-smarthome-plus`. Development checkouts should use `git config core.hooksPath .husky` so the hook is active.
 
 ## Project lineage and limitations
 
