@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-08-01
+
+### Added
+
+- Add optional Homebridge 2 Matter projection for Alexa lights, smart locks, smart plugs, and power-capable switches.
+- Reuse the existing Alexa authentication, discovery, command, and state-polling paths for Matter instead of creating a second session or polling loop.
+- Keep Matter state synchronized from the shared Alexa device cache, including changes found by periodic polling.
+- Add detected-device rename fields that show the Alexa device name as the title and use it as the default editable HomeKit name.
+
+### Changed
+
+- Promote the device-tested Matter release candidate to a stable release.
+- Build against the Homebridge 2.1.1 plugin API while retaining the existing HomeKit-only runtime path when Matter is unavailable.
+- Document Matter setup, shared Alexa configuration, supported device types, and current limitations in English and Japanese.
+- Clarify the periodic state refresh warning and display the unsupported/stale-state limitation on a separate line in the settings UI.
+
+### Fixed
+
+- Make custom configuration UI help text readable in Homebridge dark mode.
+- Prevent stale cached Matter accessories from removing an active replacement when an Alexa device changes its Matter type.
+- Restrict Jest discovery to the source tree so release verification completes without scanning unrelated workspace files.
+- Reject Git pushes and npm release preparation when the destination is not `sylpied/homebridge-alexa-smarthome-plus`, and keep the upstream source repository fetch-only.
+
 ## [1.1.0-rc.2] - 2026-07-29
 
 ### Added

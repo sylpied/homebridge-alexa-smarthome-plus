@@ -103,6 +103,22 @@
   white-space: nowrap;
 }
 
+.asmp-alias-item {
+  border: 1px solid var(--bs-border-color, #ddd);
+  border-radius: 0.4rem;
+  margin-bottom: 0.65rem;
+  padding: 0.75rem;
+}
+
+.asmp-alias-title {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.asmp-multiline-help {
+  white-space: pre-line;
+}
+
 .asmp-discovery-item {
   align-items: center;
   cursor: pointer;

@@ -1,7 +1,7 @@
 {
   "displayName": "Alexa Smart Home Plus",
   "name": "homebridge-alexa-smarthome-plus",
-  "version": "1.1.0-rc.2",
+  "version": "1.1.0",
   "description": "An independently maintained Homebridge plugin for controlling Alexa smart home devices from HomeKit.",
   "license": "MIT",
   "author": "Alexa Smart Home Plus contributors",

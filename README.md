@@ -95,7 +95,7 @@ Homebridge 1 continues to publish the existing HomeKit accessories and simply sk
 
 Some Alexa-connected devices do not send state events after a physical control or another remote changes them. With periodic state refresh enabled, the plugin checks at 10, 15, and 30 seconds, then 1, 3, 5, 10, and 15 minutes. It then continues at the configured steady interval. The default is 5 minutes, with 1, 3, 5, 10, 15, and 30 minute options. A HomeKit operation restarts the initial schedule. Requests for multiple devices are staggered, and temporary failures automatically back off up to 60 minutes.
 
-Not every Alexa-connected endpoint supports retrieval of its current state. Depending on the device and integration, a state query can return an unchanged or stale value, or no state information at all. In that case, the state displayed through HomeKit or Matter may differ from the physical device. Periodic refresh reflects the state reported by Alexa; it cannot force an Alexa integration to refresh a value that Alexa itself has not updated.
+Some Alexa integrations do not provide current state or return stale values. For those devices, the state displayed through HomeKit or Matter may differ from the physical device. Periodic refresh reflects the state reported by Alexa; it cannot force an Alexa integration to refresh a value that Alexa itself has not updated.
 
 ### Hardware paths verified during development
 

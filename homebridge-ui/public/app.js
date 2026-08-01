@@ -175,10 +175,8 @@
       </div>
       <div>
         <label class="form-label">${t('aliases')}</label>
+        <div class="form-text mb-2">${t('aliasesHelp')}</div>
         <div id="alias-list"></div>
-        <button id="add-alias" type="button" class="btn btn-outline-primary btn-sm">${t(
-          'add',
-        )}</button>
       </div>
       <div id="discovered-devices" class="mt-3"></div>`;
 
@@ -228,7 +226,7 @@
               )
               .join('')}
           </select>
-          <div class="form-text">${t(
+          <div class="form-text asmp-multiline-help">${t(
             'periodicStateRefreshIntervalHelp',
           )}</div>
         </div>
@@ -826,6 +824,7 @@
     discoveredRoutines = Array.isArray(result.routines) ? result.routines : [];
     const migratedDeviceFilters = migrateNameFiltersToDeviceIds();
     renderAuthenticationStatus();
+    renderLists();
     renderDiscoveryResults();
     discoveryInProgress = false;
     const refreshButton = byId('discover-alexa');
@@ -933,6 +932,69 @@
     });
   };
 
+  const renderDeviceAliasList = () => {
+    const container = byId('alias-list');
+    container.replaceChildren();
+
+    const publishedNames = discoveredDevices
+      .filter(isDevicePublished)
+      .map(({ name }) => name)
+      .filter(Boolean);
+    const configuredNames = config.deviceAliases
+      .map(({ alexaName }) => alexaName)
+      .filter(Boolean);
+    const deviceNames = [...new Set([...publishedNames, ...configuredNames])];
+
+    if (!deviceNames.length) {
+      const empty = document.createElement('div');
+      empty.className = 'form-text';
+      empty.textContent = t('aliasesEmpty');
+      container.append(empty);
+      return;
+    }
+
+    deviceNames.forEach((alexaName) => {
+      const item = document.createElement('div');
+      item.className = 'asmp-alias-item';
+
+      const title = document.createElement('div');
+      title.className = 'asmp-alias-title';
+      title.textContent = alexaName;
+
+      const label = document.createElement('label');
+      label.className = 'form-label';
+      label.textContent = t('homeKitName');
+
+      const configured = config.deviceAliases.find(
+        (alias) => alias.alexaName === alexaName,
+      );
+      const input = createInput(
+        configured?.homeKitName || alexaName,
+        alexaName,
+        (next) => {
+          const nextName = next.trim();
+          const index = config.deviceAliases.findIndex(
+            (alias) => alias.alexaName === alexaName,
+          );
+          if (!nextName || nextName === alexaName) {
+            if (index >= 0) config.deviceAliases.splice(index, 1);
+          } else if (index >= 0) {
+            config.deviceAliases[index].homeKitName = next;
+          } else {
+            config.deviceAliases.push({ alexaName, homeKitName: next });
+          }
+          scheduleUpdate();
+        },
+      );
+      input.addEventListener('blur', () => {
+        if (!input.value.trim()) input.value = alexaName;
+      });
+
+      item.append(title, label, input);
+      container.append(item);
+    });
+  };
+
   const renderLists = () => {
     renderStringList(
       'included-list',
@@ -958,13 +1020,7 @@
       t('routineNames'),
       'routine-candidates',
     );
-    renderPairList(
-      'alias-list',
-      config.deviceAliases,
-      ['alexaName', 'homeKitName'],
-      [t('alexaName'), t('homeKitName')],
-      'device-candidates',
-    );
+    renderDeviceAliasList();
     renderPairList(
       'disabled-list',
       config.disabledOperations,
@@ -981,11 +1037,6 @@
       addString(config.excludeDevices);
     };
     byId('add-routine').onclick = () => addString(config.routines.names);
-    byId('add-alias').onclick = () => {
-      config.deviceAliases.push({ alexaName: '', homeKitName: '' });
-      renderLists();
-      scheduleUpdate();
-    };
     byId('add-disabled').onclick = () => {
       config.disabledOperations.push({ deviceName: '', operations: '' });
       renderLists();
@@ -1050,7 +1101,7 @@
         : config.uiLanguage;
     try {
       const response = await withTimeout(
-        fetch(`locales/${selected}.json?v=1.1.0-rc.2`),
+        fetch(`locales/${selected}.json?v=1.1.0`),
         undefined,
       );
       translations = response?.ok ? await response.json() : {};
