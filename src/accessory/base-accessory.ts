@@ -37,6 +37,7 @@ export default abstract class BaseAccessory {
   private static readonly PERIODIC_REFRESH_INITIAL_DELAYS_MS = [
     10_000, 5_000, 15_000, 30_000, 120_000, 120_000, 300_000, 300_000,
   ] as const;
+
   private static readonly DEFAULT_PERIODIC_REFRESH_INTERVAL_MINUTES = 5;
   private static readonly MAX_PERIODIC_REFRESH_BACKOFF_MS = 60 * 60_000;
 

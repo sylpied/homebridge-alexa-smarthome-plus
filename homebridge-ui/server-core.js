@@ -1,6 +1,13 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
+const isAuthenticationFailure = (error) => {
+  const message = error instanceof Error ? error.message : String(error || '');
+  return /401 Unauthorized|Cookie invalid, Renew unsuccessful|authentication invalid|InvalidToken/i.test(
+    message,
+  );
+};
+
 const withTimeout = (promise, timeoutMs, message, onTimeout = () => {}) =>
   new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
@@ -33,4 +40,4 @@ const writePrivateJson = (filePath, value) => {
   }
 };
 
-module.exports = { withTimeout, writePrivateJson };
+module.exports = { isAuthenticationFailure, withTimeout, writePrivateJson };

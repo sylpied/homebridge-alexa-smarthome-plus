@@ -44,6 +44,11 @@
   gap: 0.9rem;
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
+.asmp-context-fields .form-label {
+  font-size: .78rem;
+  letter-spacing: -.025em;
+  white-space: nowrap;
+}
 
 .asmp-field-wide {
   grid-column: 1 / -1;

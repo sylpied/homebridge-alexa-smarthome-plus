@@ -2,7 +2,7 @@
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
-  roots: ['<rootDir>/src'],
+  roots: ['<rootDir>/src', '<rootDir>/homebridge-ui'],
   setupFiles: ['dotenv/config'],
   setupFilesAfterEnv: ['<rootDir>/__tests__/test-setup.ts'],
   testMatch: ['**/?(*.)+(spec|test).ts?(x)'],

@@ -1,0 +1,43 @@
+{
+  "name": "alexa-cookie2",
+  "version": "5.0.6",
+  "description": "Alexa Cookie 5.0.6 with the Alexa Smart Home Plus local HTTP callback fix",
+  "author": {
+    "name": "Apollon77",
+    "email": "ingo@fischer-ka.de"
+  },
+  "contributors": [
+    {
+      "name": "Apollon77",
+      "email": "ingo@fischer-ka.de"
+    }
+  ],
+  "homepage": "https://github.com/Apollon77/alexa-cookie",
+  "license": "MIT",
+  "keywords": [
+    "alexa",
+    "echo",
+    "alexa remote",
+    "layla.amazon.de"
+  ],
+  "dependencies": {
+    "cookie": "^0.6.0",
+    "express": "^4.22.2",
+    "http-proxy-middleware": "^2.0.10",
+    "http-proxy-response-rewrite": "^0.0.1",
+    "https": "^1.0.0",
+    "querystring": "^0.2.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Apollon77/alexa-cookie.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Apollon77/alexa-cookie/issues"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "main": "alexa-cookie.js",
+  "readmeFilename": "readme.md"
+}

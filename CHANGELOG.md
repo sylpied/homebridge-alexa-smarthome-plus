@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-25
+
+### Added
+
+- Add an opt-in, bearer-authenticated Local Context API for Kokochi Pilot.
+- Expose filtered Alexa device metadata and shared cached state, and route commands through the existing Alexa API wrapper.
+- Add common capabilities and snapshots for locks, thermostats, temperature, and humidity, confirmed state patches, and state-difference events.
+- Align the Kokochi UI with Mitsubishi Plus token generation, copy, and regeneration controls.
+- Add `/v1/info`, required operation IDs, the common `changes` patch envelope, common error codes, and per-field apply results.
+
+### Changed
+
+- Update `alexa-cookie2` to 5.0.6 and `alexa-remote2` to 8.1.1 for current Amazon login and two-step verification redirects.
+- Check saved authentication against Alexa when the settings UI opens instead of treating stored cookie fields alone as a valid session.
+- Keep the Local Context projection independent from the existing HomeKit and Matter initialization paths.
+- Bind the API to localhost only, separate receive and event tokens, and never update shared state from an unconfirmed command result.
+- Make locks read-only, label ordinary Alexa observations as `reported`, retain mismatched confirmation observations as external changes, and enforce event delivery timeout/status checks.
+
+### Fixed
+
+- Resume Child Bridge initialization after authentication is saved in the settings UI, without restarting Homebridge.
+- Show Kokochi Pilot settings only when its plugin is installed.
+- Prevent dependency-internal cookie recovery from starting a browser proxy during runtime or device discovery.
+- Remove upstream HTTPS-upgrade policies from local HTTP authentication responses.
+
+- Recognize `Cookie invalid, Renew unsuccessful`, `InvalidToken`, and invalid authentication responses as expired Alexa authentication while keeping ordinary network failures out of the automatic re-authentication path.
+- Keep Amazon's post-login callback on the authentication proxy scheme used at the start of the session: HTTP remains HTTP, while HTTPS behind a TLS reverse proxy remains HTTPS. The settings UI now passes its generated HTTP login scheme explicitly instead of relying on request-header inference.
+- Prevent the Child Bridge from starting a second browser authentication proxy when saved authentication is missing or rejected. Browser authentication is now started only by the plugin settings server, avoiding port conflicts and stale proxy behavior.
+
 ## [1.1.0] - 2026-08-01
 
 ### Added

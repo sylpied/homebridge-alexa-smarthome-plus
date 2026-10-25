@@ -1,4 +1,5 @@
 (() => {
+  let kokochiInstalled = false;
   const amazonDomains = [
     'amazon.com',
     'amazon.ca',
@@ -38,6 +39,13 @@
       periodicStateRefresh: true,
       periodicStateRefreshIntervalMinutes: 5,
     },
+    localContext: {
+      enabled: false,
+      port: 40321,
+      apiToken: '',
+      eventUrl: 'http://127.0.0.1:17890/v1/events',
+      eventToken: '',
+    },
     disabledOperations: [],
     debug: false,
   };
@@ -69,6 +77,26 @@
 
   const t = (key) => translations?.[key] || key;
   const byId = (id) => document.getElementById(id);
+  const randomToken = () => {
+    const bytes = new Uint8Array(32);
+    crypto.getRandomValues(bytes);
+    return btoa(String.fromCharCode(...bytes))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+  };
+  const ensureContextTokens = () => {
+    let changed = false;
+    if (!config.localContext.apiToken) {
+      config.localContext.apiToken = randomToken();
+      changed = true;
+    }
+    if (!config.localContext.eventToken) {
+      config.localContext.eventToken = randomToken();
+      changed = true;
+    }
+    return changed;
+  };
 
   const withTimeout = (promise, fallback, timeoutMs = 2000) =>
     Promise.race([
@@ -222,7 +250,9 @@
             ${[1, 3, 5, 10, 15, 30]
               .map(
                 (minutes) =>
-                  `<option value="${minutes}">${minutes} ${t('minutes')}</option>`,
+                  `<option value="${minutes}">${minutes} ${t(
+                    'minutes',
+                  )}</option>`,
               )
               .join('')}
           </select>
@@ -243,6 +273,49 @@
         </div>
       </div>`;
 
+    const tokenField = (id, label, value) => `
+      <div class="form-group">
+        <label for="${id}" class="form-label">${label}</label>
+        <div class="input-group">
+          <input id="${id}" type="password" class="form-control" value="${escapeAttribute(
+      value,
+    )}" readonly>
+          <button type="button" class="btn btn-outline-secondary copy-context-token" data-token-id="${id}">${t(
+      'copyToken',
+    )}</button>
+          <button type="button" class="btn btn-outline-danger regenerate-context-token" data-token-id="${id}">${t(
+      'regenerateToken',
+    )}</button>
+        </div>
+      </div>`;
+    const localContext = `
+      <div class="form-check mb-3">
+        <input id="context-enabled" type="checkbox" class="form-check-input">
+        <label for="context-enabled" class="form-check-label">${t(
+          'contextEnable',
+        )}</label>
+      </div>
+      <p class="text-muted">${t('contextHelp')}</p>
+      <div class="asmp-grid asmp-context-fields">
+        ${field(
+          'context-port',
+          t('contextPort'),
+          'number',
+          'min="1024" max="65535"',
+        )}
+        ${tokenField(
+          'context-api-token',
+          t('contextToken'),
+          config.localContext.apiToken,
+        )}
+        ${field('context-event-url', t('eventTarget'), 'url')}
+        ${tokenField(
+          'context-event-token',
+          t('eventToken'),
+          config.localContext.eventToken,
+        )}
+      </div>`;
+
     const deviceCandidates = cachedAccessories
       .filter((accessory) => accessory.context?.deviceType !== 'ALEXA_ROUTINE')
       .map((accessory) => accessory.displayName)
@@ -258,6 +331,7 @@
       section(t('account'), t('accountHelp'), account, true),
       section(t('devices'), t('devicesHelp'), devices, true),
       section(t('routines'), t('routinesHelp'), routines),
+      kokochiInstalled ? section(t('context'), t('contextHelp'), localContext) : '',
       section(t('advanced'), '', advanced),
       `<datalist id="device-candidates">${[...new Set(deviceCandidates)]
         .map((name) => `<option value="${escapeAttribute(name)}"></option>`)
@@ -278,6 +352,7 @@
 
   const bind = (id, value, handler, event = 'input') => {
     const element = byId(id);
+    if (!element) return;
     if (element.type === 'checkbox') element.checked = Boolean(value);
     else element.value = value ?? '';
     element.addEventListener(event, () => handler(element));
@@ -337,6 +412,23 @@
       scheduleUpdate();
     });
     bind(
+      'context-enabled',
+      config.localContext.enabled,
+      (el) => {
+        config.localContext.enabled = el.checked;
+        scheduleUpdate();
+      },
+      'change',
+    );
+    bind('context-port', config.localContext.port, (el) => {
+      config.localContext.port = Number(el.value) || 40321;
+      scheduleUpdate();
+    });
+    bind('context-event-url', config.localContext.eventUrl, (el) => {
+      config.localContext.eventUrl = el.value.trim();
+      scheduleUpdate();
+    });
+    bind(
       'auto-recovery',
       config.auth.reauthenticateOnFailure,
       (el) => {
@@ -378,6 +470,28 @@
     byId('start-auth').onclick = startAuthentication;
     byId('discover-alexa').onclick = discoverAlexa;
     byId('clear-auth').onclick = clearAuthentication;
+    document.querySelectorAll('.copy-context-token').forEach((button) => {
+      button.onclick = async () => {
+        const input = byId(button.dataset.tokenId);
+        if (!input) return;
+        await navigator.clipboard.writeText(input.value);
+        const previous = button.textContent;
+        button.textContent = t('tokenCopied');
+        window.setTimeout(() => (button.textContent = previous), 1200);
+      };
+    });
+    document.querySelectorAll('.regenerate-context-token').forEach((button) => {
+      button.onclick = async () => {
+        if (!window.confirm(t('regenerateTokenConfirm'))) return;
+        const key =
+          button.dataset.tokenId === 'context-api-token'
+            ? 'apiToken'
+            : 'eventToken';
+        config.localContext[key] = randomToken();
+        render();
+        await validateAndUpdate();
+      };
+    });
   };
 
   const runRequest = async (
@@ -406,20 +520,33 @@
     const state = byId('auth-state');
     if (!state) return;
 
-    state.textContent = authentication.authenticated
+    const expired = authentication.errorCode === 'AUTHENTICATION_EXPIRED';
+    const unavailable = authentication.errorCode === 'ALEXA_API_UNAVAILABLE';
+    state.textContent = expired
+      ? t('authenticationExpiredState')
+      : authentication.authenticated
       ? t('connected')
       : t('notConnected');
     state.className = `badge ${
-      authentication.authenticated ? 'bg-success' : 'bg-secondary'
+      authentication.authenticated
+        ? 'bg-success'
+        : expired
+        ? 'bg-danger'
+        : 'bg-secondary'
     }`;
     // Discovery is also a safe way to verify an existing saved session, so it
     // must remain available even when the status request was not reflected by
     // Homebridge UI.
     byId('discover-alexa').disabled = false;
-    byId('clear-auth').disabled = !authentication.authenticated;
+    byId('clear-auth').disabled =
+      !authentication.authenticated && !expired && !unavailable;
 
     const updated = byId('auth-updated');
-    updated.textContent = authentication.updatedAt
+    updated.textContent = expired
+      ? t('authenticationExpired')
+      : unavailable
+      ? t('authenticationUnavailable')
+      : authentication.updatedAt
       ? `${t('lastUpdated')}: ${new Date(
           authentication.updatedAt,
         ).toLocaleString()}`
@@ -1116,10 +1243,17 @@
       [],
     );
     config = deepMerge(defaults, blocks[0] || {});
+    const contextTokensGenerated = ensureContextTokens();
     delete config.performance.experimentalAlexaStateRefresh;
     delete config.performance.refreshAlexaDeviceListBeforeState;
     await loadTranslations();
+    const integrations = await withTimeout(
+      homebridge.request('/integrations').catch(() => ({})),
+      {},
+    );
+    kokochiInstalled = integrations.kokochiInstalled === true;
     render();
+    if (contextTokensGenerated) await homebridge.updatePluginConfig([config]);
 
     // Optional data is deliberately loaded after the form is visible. A slow
     // custom UI server or accessory cache must never leave a blank page.
@@ -1132,7 +1266,7 @@
         : [];
     authentication = await withTimeout(
       homebridge
-        .request('/auth/status', {})
+        .request('/auth/status', { validate: true, config })
         .catch(() => ({ authenticated: false })),
       { authenticated: false },
     );

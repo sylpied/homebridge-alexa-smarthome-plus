@@ -2,9 +2,29 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-const { withTimeout, writePrivateJson } = require('./server-core');
+const {
+  isAuthenticationFailure,
+  withTimeout,
+  writePrivateJson,
+} = require('./server-core');
 
 describe('settings server core', () => {
+  test.each([
+    '401 Unauthorized',
+    'Cookie invalid, Renew unsuccessful',
+    'Authentication invalid',
+    'Register App failed: InvalidToken',
+  ])('recognizes an Alexa authentication failure: %s', (message) => {
+    expect(isAuthenticationFailure(new Error(message))).toBe(true);
+  });
+
+  test.each(['connect ETIMEDOUT', 'getaddrinfo ENOTFOUND', 'socket hang up'])(
+    'does not treat a network failure as expired authentication: %s',
+    (message) => {
+      expect(isAuthenticationFailure(new Error(message))).toBe(false);
+    },
+  );
+
   test('rejects an operation that exceeds its timeout and runs cleanup', async () => {
     const cleanup = jest.fn();
     const pending = new Promise(() => undefined);

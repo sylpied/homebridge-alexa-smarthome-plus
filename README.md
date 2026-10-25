@@ -29,6 +29,19 @@ After connecting an Amazon account, the plugin retrieves Alexa devices and routi
 - Alexa routines exposed as momentary HomeKit switches
 - An on/off fallback for otherwise unknown Alexa device types
 - Optional Matter projection on Homebridge 2 for lights, locks, outlets, and switches
+- Optional bearer-authenticated Local Context API for Kokochi Pilot
+
+## Kokochi Pilot Local Context API
+
+The integration settings are shown when `homebridge-kokochi-pilot` is installed in the same Homebridge environment.
+
+The API is disabled by default and always binds to `127.0.0.1` on port `40321` by default. It cannot be configured for LAN exposure. Separate API-receive and event-delivery bearer tokens are generated into the plugin persist directory with mode `0600`; either token can be explicitly overridden in advanced settings.
+
+Send `Authorization: Bearer <apiToken>` with every request. `GET /v1/info` describes the implementation. Devices provide common `capabilities` and a `snapshot` containing `observedAt`, `stale`, `stateConfidence`, and normalized state. In addition to the discovery routes, `GET /v1/devices/{id}/state`, `GET /v1/devices/{id}/capabilities`, and `PATCH /v1/devices/{id}/state` are available. A patch requires `operationId` and uses the common `changes` envelope, for example `{"operationId":"...","controlContext":{"source":"kokochi-pilot"},"changes":{"hvac":{"mode":"cool"}}}`. Lock state is read-only.
+
+The initial scope is locks, thermostats, temperature, and humidity. A write is reported as `confirmed` only after a new Alexa state query matches the requested common state. The shared cache is never changed to a guessed command result. When an event URL is configured, confirmed operations and cache differences are delivered using the separate event token; changes not associated with a Local Context operation are labeled `external-or-unknown`.
+
+The API exposes only devices selected by the existing discovery filters. It shares the existing Alexa authentication, state cache, polling, and command wrapper; it does not create another Alexa session or alter the HomeKit/Matter projections.
 
 ## First-run journey
 
@@ -37,6 +50,8 @@ After connecting an Amazon account, the plugin retrieves Alexa devices and routi
 Open the plugin settings in Homebridge UI. Select the Amazon marketplace used by the Alexa account and provide a Homebridge host that the current browser can reach. The authentication proxy port must not be used by another service.
 
 Select **Connect to Alexa** and complete Amazon's sign-in flow, including MFA, CAPTCHA, or device approval when requested. When the completion page appears, close it and return to the Homebridge settings window.
+
+When the settings window opens, the plugin checks the saved session against Alexa. If it has expired, the account section shows **Expired** and asks you to run **Connect to Alexa** again. A temporary Alexa or network outage is shown separately and does not delete the saved session.
 
 ### Choose what HomeKit receives
 
@@ -52,16 +67,16 @@ Save the configuration and restart the Child Bridge. The chosen accessories will
 
 The plugin evaluates both the Alexa device type and the operations reported for that endpoint.
 
-| Alexa endpoint | HomeKit presentation | Typical controls |
-|---|---|---|
-| Light | Lightbulb | Power, brightness, color temperature, color when available |
-| Smart lock | Lock | Lock, unlock, current state |
-| Outlet or plug | Outlet | Power |
-| Switch | Switch or Lightbulb | Power, brightness when available |
-| Fan | Fan | Power and available speed controls |
-| Thermostat | Thermostat | Temperature and operating mode |
-| Temperature, humidity, air quality, or CO endpoint | Sensor service | Current readings |
-| Alexa routine | Momentary switch | Run routine |
+| Alexa endpoint                                     | HomeKit presentation | Typical controls                                           |
+| -------------------------------------------------- | -------------------- | ---------------------------------------------------------- |
+| Light                                              | Lightbulb            | Power, brightness, color temperature, color when available |
+| Smart lock                                         | Lock                 | Lock, unlock, current state                                |
+| Outlet or plug                                     | Outlet               | Power                                                      |
+| Switch                                             | Switch or Lightbulb  | Power, brightness when available                           |
+| Fan                                                | Fan                  | Power and available speed controls                         |
+| Thermostat                                         | Thermostat           | Temperature and operating mode                             |
+| Temperature, humidity, air quality, or CO endpoint | Sensor service       | Current readings                                           |
+| Alexa routine                                      | Momentary switch     | Run routine                                                |
 
 Alexa integrations can report different capabilities for the same physical product, so available HomeKit controls may vary by account.
 
@@ -79,13 +94,13 @@ If Alexa authentication and HomeKit device selection are already complete, Matte
 
 Compatible selected endpoints are registered automatically. Matter uses the same selection and HomeKit-specific aliases as the HomeKit accessories; there is no second Alexa device list to maintain.
 
-| Alexa capability | Matter device type |
-|---|---|
-| Power-only light | On/Off Light |
+| Alexa capability                | Matter device type                                   |
+| ------------------------------- | ---------------------------------------------------- |
+| Power-only light                | On/Off Light                                         |
 | Dimmable or color-capable light | Dimmable, Color Temperature, or Extended Color Light |
-| Smart lock | Door Lock |
-| Smart plug | On/Off Plug-in Unit |
-| Other safe power endpoint | On/Off Switch |
+| Smart lock                      | Door Lock                                            |
+| Smart plug                      | On/Off Plug-in Unit                                  |
+| Other safe power endpoint       | On/Off Switch                                        |
 
 The Matter projection currently covers power, brightness, color temperature, color, and lock operations when Alexa reports the corresponding capabilities. State changes flow through the existing shared Alexa state cache and periodic refresh mechanism.
 
@@ -107,6 +122,8 @@ Some Alexa integrations do not provide current state or return stale values. For
 There are no plugin fields for an Amazon username, password, or MFA code. Those values are entered only into the Amazon-hosted sign-in flow and are not saved by this plugin.
 
 After authentication, the Alexa session material required for later requests is stored under Homebridge's `persist` directory. The plugin refreshes that session while possible and asks for browser authentication again when user interaction is required.
+
+A Child Bridge that started without authentication begins connecting when the settings UI saves the authentication file. Homebridge does not need to be restarted to leave this waiting state.
 
 ## Where to look when something fails
 

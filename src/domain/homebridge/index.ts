@@ -43,6 +43,16 @@ export interface AlexaPlatformConfig extends PlatformConfig {
     periodicStateRefresh?: Nullable<boolean>;
     periodicStateRefreshIntervalMinutes?: Nullable<number>;
   }>;
+  localContext?: Nullable<{
+    enabled: Nullable<boolean>;
+    host: Nullable<string>;
+    port: Nullable<number>;
+    apiToken?: Nullable<string>;
+    eventToken?: Nullable<string>;
+    eventUrl?: Nullable<string>;
+    /** @deprecated Use apiToken. */
+    token: Nullable<string>;
+  }>;
   disabledOperations: Nullable<
     Array<{
       deviceName: string;

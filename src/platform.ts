@@ -28,6 +28,7 @@ import { SmartHomeDevice } from './domain/alexa/get-devices';
 import { AlexaRoutine } from './domain/alexa/routine';
 import { AlexaPlatformConfig } from './domain/homebridge';
 import { mapAlexaDeviceToHomeKitAccessoryInfos } from './mapper';
+import { LocalContextServer } from './local-context/local-context-server';
 import { AlexaMatterBridge } from './matter/matter-bridge';
 import * as settings from './settings';
 import DeviceStore from './store/device-store';
@@ -49,12 +50,14 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
   public readonly alexaApi: AlexaApiWrapper;
   public readonly deviceStore: DeviceStore;
   public readonly matterBridge: AlexaMatterBridge;
+  public readonly localContextServer: LocalContextServer;
 
   public cachedAccessories: PlatformAccessory[] = [];
   public accessoryHandlers: BaseAccessory[] = [];
   public activeDeviceIds: string[] = [];
 
   private readonly cookiePersistPath: string;
+  private cookieListenerRegistered = false;
 
   constructor(
     readonly logger: Logger,
@@ -95,7 +98,11 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
     this.cookiePersistPath = `${api.user.persistPath()}/.${
       settings.PLUGIN_NAME
     }`;
-    this.alexaRemote = new AlexaRemote();
+    this.alexaRemote = Object.assign(new AlexaRemote(), {
+      // alexa-remote2 otherwise resolves its own unpatched registry copy.
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      alexaCookie: require('alexa-cookie2'),
+    });
     this.deviceStore = new DeviceStore(this.config.performance);
     this.alexaApi = new AlexaApiWrapper(
       this.Service,
@@ -109,6 +116,14 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
       this.deviceStore,
       this.Service,
       this.log,
+    );
+    this.localContextServer = new LocalContextServer(
+      this.config.localContext,
+      this.alexaApi,
+      this.deviceStore,
+      this.Service,
+      this.log,
+      `${api.user.persistPath()}/.${settings.PLUGIN_NAME}-local-context.json`,
     );
     this.log.info(
       `Periodic Alexa state refresh: ${
@@ -129,11 +144,30 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
       ),
     );
 
-    api.on('didFinishLaunching', () => {
+    let connectionStarted = false;
+    let stopped = false;
+    const connect = () => {
+      if (connectionStarted || stopped) {
+        return;
+      }
+      connectionStarted = true;
       this.initAlexaRemote((maybeError) => {
+        if (stopped) {
+          this.alexaRemote.stop?.();
+          return;
+        }
+        if (O.isSome(maybeError)) {
+          connectionStarted = false;
+          handleAuthResult(maybeError)();
+          return;
+        }
         pipe(
           TE.rightIO(handleAuthResult(maybeError)),
           TE.flatMap(this.findDevices.bind(this)),
+          TE.tapIO((devices) => () => {
+            this.localContextServer.syncDevices(devices);
+            this.localContextServer.start();
+          }),
           TE.tap((devices: SmartHomeDevice[]) =>
             this.syncMatterDevices(devices),
           ),
@@ -155,13 +189,29 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
           ),
         );
       });
+    };
+    const authenticationChanged = () => {
+      if (!connectionStarted && fs.existsSync(this.cookiePersistPath)) {
+        connect();
+      }
+    };
+    api.on('didFinishLaunching', () => {
+      fs.watchFile(
+        this.cookiePersistPath,
+        { interval: 2000, persistent: false },
+        authenticationChanged,
+      );
+      connect();
     });
 
     api.on('shutdown', () => {
+      stopped = true;
+      fs.unwatchFile(this.cookiePersistPath, authenticationChanged);
       this.accessoryHandlers.forEach((accessory) =>
         accessory.stopPeriodicStateRefresh(),
       );
       this.matterBridge?.stop();
+      this.localContextServer?.stop();
       this.alexaRemote.stop?.();
     });
   }
@@ -198,29 +248,29 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
     });
   }
 
-  initAlexaRemote(
-    callback: (error: Option<Error>) => void,
-    firstAttempt = true,
-  ) {
-    this.alexaRemote.on('cookie', () => {
-      const cookieData = this.alexaRemote.cookieData;
-      if (util.isValidAuthentication(cookieData as unknown as J.Json)) {
-        this.log.debug(
-          'Alexa login cookie updated. Storing cookie in file:',
-          this.cookiePersistPath,
-        )();
-        const temporaryPath = `${this.cookiePersistPath}.${process.pid}.tmp`;
-        try {
-          fs.writeFileSync(temporaryPath, JSON.stringify({ cookieData }), {
-            mode: 0o600,
-          });
-          fs.renameSync(temporaryPath, this.cookiePersistPath);
-          fs.chmodSync(this.cookiePersistPath, 0o600);
-        } finally {
-          fs.rmSync(temporaryPath, { force: true });
+  initAlexaRemote(callback: (error: Option<Error>) => void) {
+    if (!this.cookieListenerRegistered) {
+      this.cookieListenerRegistered = true;
+      this.alexaRemote.on('cookie', () => {
+        const cookieData = this.alexaRemote.cookieData;
+        if (util.isValidAuthentication(cookieData as unknown as J.Json)) {
+          this.log.debug(
+            'Alexa login cookie updated. Storing cookie in file:',
+            this.cookiePersistPath,
+          )();
+          const temporaryPath = `${this.cookiePersistPath}.${process.pid}.tmp`;
+          try {
+            fs.writeFileSync(temporaryPath, JSON.stringify({ cookieData }), {
+              mode: 0o600,
+            });
+            fs.renameSync(temporaryPath, this.cookiePersistPath);
+            fs.chmodSync(this.cookiePersistPath, 0o600);
+          } finally {
+            fs.rmSync(temporaryPath, { force: true });
+          }
         }
-      }
-    });
+      });
+    }
 
     const logStoredAuthErrors = O.match(
       () => {
@@ -241,6 +291,17 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
       util.getAuthentication(this.cookiePersistPath),
       IOE.match(logStoredAuthErrors, identity),
       IO.map((auth) => {
+        if (!auth) {
+          callback(
+            O.of(
+              new Error(
+                'Alexa authentication is required. Open the plugin settings to authenticate.',
+              ),
+            ),
+          );
+          return;
+        }
+
         // Prefer the marketplace from saved cookie data over the config.
         const effectiveDomain =
           auth?.amazonPage && auth.amazonPage !== amazonDomain
@@ -266,6 +327,7 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
               settings.ONE_DAY_MILLIS,
             cookie: auth?.localCookie,
             deviceAppName: 'Homebridge',
+            allowInteractiveLogin: false,
             macDms: auth?.macDms,
             proxyOwnIp: this.config.auth.proxy.clientHost,
             proxyPort: this.config.auth.proxy.port,
@@ -284,18 +346,15 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
                 () => callback(O.none),
                 (e) => {
                   if (
-                    firstAttempt &&
                     this.config.auth.reauthenticateOnFailure !== false &&
-                    e.message.includes('401 Unauthorized')
+                    util.isAuthenticationFailure(e)
                   ) {
                     this.log.warn(
-                      'Stored Alexa authentication was rejected. Starting automatic re-authentication.',
+                      'Stored Alexa authentication has expired and was removed. Open the plugin settings to authenticate again.',
                     )();
                     fs.rmSync(this.cookiePersistPath, { force: true });
-                    this.initAlexaRemote(callback, false);
-                  } else {
-                    callback(O.of(e));
                   }
+                  callback(O.of(e));
                 },
               ),
             );

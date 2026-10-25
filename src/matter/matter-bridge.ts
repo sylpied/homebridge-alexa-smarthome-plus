@@ -36,6 +36,7 @@ export class AlexaMatterBridge {
       capability: MatterCapability;
     }
   >();
+
   private readonly commandsInFlight = new Set<string>();
   private readonly unsubscribeFromStateUpdates: () => void;
 

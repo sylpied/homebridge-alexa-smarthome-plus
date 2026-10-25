@@ -105,6 +105,24 @@ describe('isValidAuthentication', () => {
   });
 });
 
+describe('isAuthenticationFailure', () => {
+  test.each([
+    '401 Unauthorized',
+    'Cookie invalid, Renew unsuccessful',
+    'Authentication invalid',
+    'Register App failed: InvalidToken',
+  ])('returns true for an Alexa authentication failure: %s', (message) => {
+    expect(util.isAuthenticationFailure(new Error(message))).toBe(true);
+  });
+
+  test.each(['connect ETIMEDOUT', 'getaddrinfo ENOTFOUND', 'socket hang up'])(
+    'returns false for a network failure: %s',
+    (message) => {
+      expect(util.isAuthenticationFailure(new Error(message))).toBe(false);
+    },
+  );
+});
+
 describe('resolveHomeKitDeviceName', () => {
   test('uses the configured alias', () => {
     expect(

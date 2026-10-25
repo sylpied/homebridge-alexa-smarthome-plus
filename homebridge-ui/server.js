@@ -3,11 +3,16 @@ const path = require('node:path');
 const AlexaRemoteModule = require('alexa-remote2');
 const AlexaRemote = AlexaRemoteModule.default || AlexaRemoteModule;
 const AlexaCookie = require('alexa-cookie2');
-const { withTimeout, writePrivateJson } = require('./server-core');
+const {
+  isAuthenticationFailure,
+  withTimeout,
+  writePrivateJson,
+} = require('./server-core');
 
 const PLUGIN_NAME = 'homebridge-alexa-smarthome-plus';
 const ONE_DAY_MILLIS = 24 * 60 * 60 * 1000;
 const DISCOVERY_TIMEOUT_MILLIS = 12000;
+const AUTHENTICATION_VALIDATION_TIMEOUT_MILLIS = 12000;
 
 const toPromise = (fn) =>
   new Promise((resolve, reject) =>
@@ -67,6 +72,26 @@ const normalizeRoutines = (response) => {
       this.lastAuthenticationLog = '';
 
       this.onRequest('/auth/status', this.authStatus.bind(this));
+      this.onRequest('/integrations', async () => {
+        const roots = [
+          this.homebridgeStoragePath,
+          path.dirname(path.dirname(__dirname)),
+          path.dirname(process.execPath) + '/../lib',
+          ...require('node:module').globalPaths,
+        ];
+        return {
+          kokochiInstalled: roots.some((root) => {
+            try {
+              require.resolve('homebridge-kokochi-pilot/package.json', {
+                paths: [root],
+              });
+              return true;
+            } catch {
+              return false;
+            }
+          }),
+        };
+      });
       this.onRequest('/auth/start', this.startAuthentication.bind(this));
       this.onRequest('/auth/clear', this.clearAuthentication.bind(this));
       this.ready();
@@ -93,6 +118,37 @@ const normalizeRoutines = (response) => {
     }
 
     async authStatus(request = {}) {
+      const auth = this.readAuthentication();
+      let authenticated = Boolean(
+        auth?.localCookie && auth?.refreshToken && auth?.macDms,
+      );
+      let errorCode;
+
+      if (
+        request.validate === true &&
+        authenticated &&
+        !this.authenticationStarting &&
+        this.discoveryState.status !== 'running'
+      ) {
+        let remote;
+        try {
+          remote = await withTimeout(
+            this.initializeRemote(request.config || {}, false),
+            AUTHENTICATION_VALIDATION_TIMEOUT_MILLIS,
+            'Alexa authentication validation timed out.',
+            () => this.activeRemote?.stop?.(),
+          );
+        } catch (error) {
+          authenticated = false;
+          errorCode = isAuthenticationFailure(error)
+            ? 'AUTHENTICATION_EXPIRED'
+            : 'ALEXA_API_UNAVAILABLE';
+        } finally {
+          remote?.stop?.();
+          if (this.activeRemote === remote) this.activeRemote = undefined;
+        }
+      }
+
       if (
         request.refresh === true &&
         this.discoveryState.status !== 'running'
@@ -108,11 +164,9 @@ const normalizeRoutines = (response) => {
           void this.performDiscovery(request.config || {});
         }, 100);
       }
-      const auth = this.readAuthentication();
       const status = {
-        authenticated: Boolean(
-          auth?.localCookie && auth?.refreshToken && auth?.macDms,
-        ),
+        authenticated,
+        errorCode,
         amazonDomain: auth?.amazonPage,
         updatedAt: auth?.tokenDate
           ? new Date(auth.tokenDate).toISOString()
@@ -135,6 +189,7 @@ const normalizeRoutines = (response) => {
       const auth = interactive ? undefined : this.readAuthentication();
       const domain = auth?.amazonPage || config.amazonDomain || 'amazon.com';
       const remote = new AlexaRemote();
+      remote.alexaCookie = AlexaCookie;
       this.activeRemote = remote;
 
       remote.on('cookie', () => {
@@ -157,6 +212,7 @@ const normalizeRoutines = (response) => {
               '_',
             ),
             formerRegistrationData: auth,
+            allowInteractiveLogin: interactive === true,
             cookieRefreshInterval:
               (config.auth?.refreshInterval || 4) * ONE_DAY_MILLIS,
             cookie: auth?.localCookie,
@@ -217,7 +273,8 @@ const normalizeRoutines = (response) => {
 
       const domain = config.amazonDomain || 'amazon.com';
       const language = config.language || 'en-US';
-      const loginUrl = `http://${host}:${port}/`;
+      const loginProtocol = 'http';
+      const loginUrl = `${loginProtocol}://${host}:${port}/`;
       let readyReported = false;
       const authenticationCompleteHtml = language.toLowerCase().startsWith('ja')
         ? `<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Alexa認証完了</title><style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f6f7f9;color:#202124;display:grid;min-height:100vh;margin:0;place-items:center}.card{background:#fff;border-radius:14px;box-shadow:0 6px 24px #0002;max-width:560px;padding:36px;text-align:center;margin:20px}.mark{background:#34a853;border-radius:50%;color:#fff;display:inline-grid;font-size:32px;height:64px;place-items:center;width:64px}h1{font-size:26px;margin:20px 0 12px}p{color:#5f6368;line-height:1.7;margin:0}</style></head><body><main class="card"><div class="mark">✓</div><h1>Alexa認証が完了しました</h1><p>このWebページは閉じてください。<br>Homebridgeの設定画面へ戻ると、Alexa機器と定型アクションの取得が始まります。</p></main></body></html>`
@@ -255,6 +312,7 @@ const normalizeRoutines = (response) => {
             proxyOnly: true,
             proxyOwnIp: host,
             proxyPort: port,
+            proxyProtocol: loginProtocol,
             setupProxy: true,
           },
           (error, cookieData) => {

@@ -34,6 +34,7 @@ export default class DeviceStore {
   };
 
   private _deviceCapabilities: RangeFeaturesByDevice = {};
+  private readonly lastUpdatedByDevice = new Map<string, Date>();
   private readonly stateListeners = new Set<DeviceStateListener>();
 
   constructor(performanceSettings?: AlexaPlatformConfig['performance']) {
@@ -110,7 +111,11 @@ export default class DeviceStore {
         this.cache.lastUpdated = new Date();
       }),
     );
-    deviceIds.forEach((deviceId) => this.notifyStateListeners(deviceId));
+    const observedAt = new Date();
+    deviceIds.forEach((deviceId) => {
+      this.lastUpdatedByDevice.set(deviceId, observedAt);
+      this.notifyStateListeners(deviceId);
+    });
     return this.cache.states;
   }
 
@@ -138,4 +143,15 @@ export default class DeviceStore {
 
   isCacheFresh = () =>
     this.cache.lastUpdated.getTime() > Date.now() - this.cacheTTL;
+
+  getLastUpdatedForDevice(deviceId: string): Date {
+    return this.lastUpdatedByDevice.get(deviceId) ?? new Date(0);
+  }
+
+  isDeviceCacheFresh(deviceId: string): boolean {
+    return (
+      this.getLastUpdatedForDevice(deviceId).getTime() >
+      Date.now() - this.cacheTTL
+    );
+  }
 }

@@ -123,6 +123,13 @@ export const isValidAuthentication = (
     )
     .otherwise(constFalse);
 
+export const isAuthenticationFailure = (error: unknown): boolean => {
+  const message = error instanceof Error ? error.message : String(error ?? '');
+  return /401 Unauthorized|Cookie invalid, Renew unsuccessful|authentication invalid|InvalidToken/i.test(
+    message,
+  );
+};
+
 export const readFile = (path: string) =>
   IOE.tryCatch(
     () => fs.readFileSync(path, { encoding: 'utf-8' }),

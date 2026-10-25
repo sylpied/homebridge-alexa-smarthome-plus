@@ -1,7 +1,7 @@
 {
   "displayName": "Alexa Smart Home Plus",
   "name": "homebridge-alexa-smarthome-plus",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "An independently maintained Homebridge plugin for controlling Alexa smart home devices from HomeKit.",
   "license": "MIT",
   "author": "Alexa Smart Home Plus contributors",
@@ -17,11 +17,23 @@
     "homebridge": "^1.6.0 || ^2.0.0",
     "node": "^18.0.0 || ^20.0.0 || ^22.0.0 || ^24.0.0"
   },
+  "files": [
+    "config.schema.json",
+    "dist/**/*.js",
+    "homebridge-ui/public",
+    "homebridge-ui/server.js",
+    "homebridge-ui/server-core.js",
+    "LICENSE",
+    "README.md",
+    "README.ja.md",
+    "ROADMAP.md",
+    "vendor/alexa-cookie2"
+  ],
   "main": "dist/index.js",
   "scripts": {
     "build": "rimraf ./dist && tsc -p tsconfig.prod.json",
     "format": "prettier --ignore-path .gitignore --write \"src/**/*.ts\"",
-    "lint": "eslint src/**.ts --max-warnings=0",
+    "lint": "eslint \"src/**/*.ts\" --ignore-pattern \"*.test.ts\" --ignore-pattern \"*.it.ts\" --max-warnings=0",
     "pre-commit": "lint-staged",
     "prepublishOnly": "npm run verify:release-target && npm run verify",
     "watch": "npm run build && nodemon",
@@ -43,8 +55,8 @@
   ],
   "dependencies": {
     "@homebridge/plugin-ui-utils": "^2.2.5",
-    "alexa-cookie2": "5.0.4",
-    "alexa-remote2": "8.0.5",
+    "alexa-cookie2": "file:vendor/alexa-cookie2",
+    "alexa-remote2": "8.1.1",
     "async-mutex": "^0.5.0",
     "extend": "^3.0.2",
     "fp-ts": "^2.16.9",
@@ -52,7 +64,12 @@
     "ts-pattern": "^4.3.0"
   },
   "overrides": {
-    "micromatch": "^4.0.8"
+    "body-parser": "^1.20.9",
+    "cookie": "^0.7.2",
+    "follow-redirects": "^1.16.1",
+    "micromatch": "^4.0.8",
+    "proxy-addr": "^2.0.8",
+    "qs": "^6.16.1"
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",
