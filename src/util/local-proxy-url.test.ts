@@ -57,9 +57,7 @@ describe('Alexa local authentication proxy URL', () => {
         9000,
         'http',
       ),
-    ).toBe(
-      'openid.return_to=http%3A%2F%2F192.168.100.203%3A9000%2Fax%2Fclaim',
-    );
+    ).toBe('openid.return_to=http%3A%2F%2F192.168.100.203%3A9000%2Fax%2Fclaim');
   });
 
   test('normalizes a JSON-escaped local callback to the session protocol', () => {
