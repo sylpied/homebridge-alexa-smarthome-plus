@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-10-25
+
+### Documentation
+
+- Add installation and update instructions in English and Japanese.
+- Remove documentation for an unreleased integration from the READMEs.
+- Use GitHub links for language selection so the Japanese README can be opened from npm.
+
 ## [1.2.0] - 2026-10-25
 
 ### Added

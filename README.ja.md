@@ -4,13 +4,33 @@ Alexa に登録済みの機器を選び、Apple のホームアプリへ橋渡�
 
 設定ファイルを手作業で編集しなくても、Amazon 認証、機器の取得、公開対象の選択まで Homebridge の設定画面で進められます。
 
-[English](README.md) | [今後の予定](ROADMAP.md)
+[English](https://github.com/sylpied/homebridge-alexa-smarthome-plus#readme)
+
+## インストールと更新
+
+Homebridge UI の「プラグイン」で `homebridge-alexa-smarthome-plus` を検索し、インストールしてください。設定画面を開き、Amazon の認証と公開する機器の選択を行います。
+
+コマンドでインストールする場合は、Homebridge が動いているマシンで実行してください。
+
+```bash
+npm install -g homebridge-alexa-smarthome-plus
+```
+
+インストール後は Homebridge を再起動します。専用の Child Bridge での利用を推奨します。Homebridge UI に表示される QR コードを使って、Apple のホームアプリへ追加してください。
+
+更新は Homebridge UI から行うか、次のコマンドを実行します。
+
+```bash
+npm install -g homebridge-alexa-smarthome-plus@latest
+```
+
+更新後は Alexa Smart Home Plus の Child Bridge を再起動してください。機器の選択や保存済み認証情報は引き継がれます。
 
 ## 作成した背景
 
 開発に使用した日本の`amazon.co.jp`環境では、Alexa の認証セッションが約 1 日後に利用できなくなり、手動での再認証が必要になる事象を確認しました。また、認証後に利用可能な機器名を設定画面へ自動反映し、公開対象を画面上で選びたいという目的もありました。
 
-そこで本プラグインでは、認証状態を設定画面で確認できること、保存済みセッションを可能な範囲で自動更新すること、更新できない場合はブラウザ再認証へ分かりやすく誘導することを重視しています。
+設定画面で認証状態を確認し、ログイン後に機器名を取得できるようにしました。保存済みセッションは Amazon 側で更新が許可されている間は自動更新します。更新できない場合は、設定画面からログインし直します。
 
 セッションの有効期間は Amazon 側の仕様、アカウント、地域、認証条件によって変わる可能性があります。「約 1 日」は本開発環境で観測した事例であり、すべての`amazon.co.jp`アカウントに共通する保証値ではありません。
 
@@ -28,28 +48,6 @@ Alexa に登録済みの機器を選び、Apple のホームアプリへ橋渡�
 - Alexa 定型アクションを一時的な HomeKit スイッチとして実行
 - 未知の機器でも ON/OFF 操作が確認できればスイッチとして公開
 - Homebridge 2 で照明、ロック、コンセント、スイッチを Matter へ任意公開
-- Kokochi Pilot 向け Local Context API（任意、有効時も Bearer 認証必須）
-
-## Kokochi Pilot Local Context API
-
-連携設定欄は、同じHomebridge環境に `homebridge-kokochi-pilot` がインストールされている場合に表示されます。
-
-Local Context API は初期状態では無効で、常に`127.0.0.1`だけで待ち受けます。LAN アドレスへ公開する設定はありません。API 受信用とイベント送信用に別々の Bearer トークンを自動生成し、プラグインの persist 領域へモード`0600`で保存します。詳細設定で各トークンを明示指定することもできます。
-
-ベース URL は既定で`http://127.0.0.1:40321`です。すべてのリクエストに`Authorization: Bearer <apiToken>`を付けます。
-
-- `GET /health`：API 稼働状態
-- `GET /v1/context`：公開対象機器、能力、共有状態キャッシュのスナップショット
-- `GET /v1/devices`：公開対象機器の一覧
-- `GET /v1/devices/{id}`：1 台分の情報と状態
-- `GET /v1/devices/{id}/state`：`observedAt`、`stale`、`stateConfidence`を含む共通 Snapshot
-- `GET /v1/devices/{id}/capabilities`：共通 Capability
-- `GET /v1/info`：実装バージョンと対応範囲
-- `PATCH /v1/devices/{id}/state`：エアコン操作。必須の`operationId`、`controlContext`、`changes`を指定。鍵は読み取り専用
-
-初期対象はエアコン、鍵、温度、湿度です。操作後は Alexa 状態を再取得し、要求と一致した場合だけ`confirmed: true`を返します。コマンドから推定した値で共有キャッシュを書き換えることはありません。イベント URL を設定すると、確認済み操作と状態差分をイベント送信用トークンで通知し、Local Context 操作に紐付かない変化は`external-or-unknown`として送信します。
-
-API は Alexa 認証セッションを新たに作りません。既存の検出フィルター後の機器だけを公開し、状態キャッシュと定期確認を共用します。操作も既存の Alexa API ラッパーを通るため、HomeKit/Matter の変換経路には変更を加えません。
 
 ## はじめて使うとき
 
@@ -133,7 +131,7 @@ Amazon のユーザー ID、パスワード、MFA コードをプラグイン設
 
 認証後は、Alexa へ継続接続するためのセッション情報だけを Homebridge の`persist`領域に保存します。更新可能な間はセッションを自動更新し、再認証が必要になった場合は設定画面に接続操作を案内します。
 
-未認証で起動したChild Bridgeは、設定画面で認証情報が保存されると接続を開始します。認証待ちからの接続にHomebridgeの再起動は不要です。
+未認証で起動した Child Bridge は、設定画面で認証情報が保存されると接続を開始します。認証待ちからの接続に Homebridge の再起動は不要です。
 
 ## 困ったときの確認場所
 
@@ -178,4 +176,4 @@ npm pack --dry-run --ignore-scripts
 
 Amazon が公開していない連携方式を使用する依存ライブラリがあるため、Amazon 側の変更によって一時的に認証や操作が利用できなくなる可能性があります。本プロジェクトは Amazon および機器メーカーの公式製品ではありません。
 
-本プロジェクトは MIT ライセンスの`joeyhage/homebridge-alexa-smarthome`を出発点とし、独自のパッケージ名、プラットフォーム名、設定画面、認証導線、機器選択機能を持つ派生プロジェクトです。元プロジェクトの README 文章は転載していません。両方のプラグインで同じ機器を公開すると、HomeKit に重複して表示されます。
+MIT ライセンスの [joeyhage/homebridge-alexa-smarthome](https://github.com/joeyhage/homebridge-alexa-smarthome) をもとに、認証、機器選択、名前の変更、設定画面、Matter 対応を独自に保守しています。両方のプラグインで同じ機器を公開すると、Apple のホームアプリに重複して表示されます。

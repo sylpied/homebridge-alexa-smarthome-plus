@@ -4,13 +4,33 @@ Alexa Smart Home Plus lets you choose devices already connected to Alexa and bri
 
 Amazon sign-in, discovery, selection, and naming are handled in the Homebridge settings screen, so the initial setup does not require hand-editing JSON.
 
-[日本語](README.ja.md) | [Roadmap](ROADMAP.md)
+[日本語](https://github.com/sylpied/homebridge-alexa-smarthome-plus/blob/main/README.ja.md)
+
+## Install
+
+In Homebridge UI, open **Plugins**, search for `homebridge-alexa-smarthome-plus`, and install it. Open its settings to connect your Amazon account and select devices.
+
+For a command-line installation, run this on the computer that runs Homebridge:
+
+```bash
+npm install -g homebridge-alexa-smarthome-plus
+```
+
+Restart Homebridge after installation. A separate Child Bridge is recommended; pair it with Apple Home using the QR code shown in Homebridge UI.
+
+To update, use Homebridge UI or run:
+
+```bash
+npm install -g homebridge-alexa-smarthome-plus@latest
+```
+
+Restart the Alexa Smart Home Plus Child Bridge after updating. Existing device selections and saved authentication are retained.
 
 ## Why this variant was created
 
 During development with an `amazon.co.jp` account, the saved Alexa session was observed becoming unusable after roughly one day and requiring interactive authentication again. The project also needed a setup flow that could retrieve Alexa names after sign-in and let users choose published devices without manually maintaining configuration lists.
 
-This plugin therefore emphasizes visible authentication status, automatic session renewal when the available credentials permit it, and a clear return to browser authentication when user interaction is unavoidable.
+The settings screen shows authentication status and retrieves device names after sign-in. Saved sessions are renewed when Amazon allows it. When renewal fails, sign in again from the settings screen.
 
 Session lifetime can vary with Amazon-side behavior, account settings, region, and authentication conditions. The roughly one-day lifetime is an observation from the development environment, not a claim that every `amazon.co.jp` session expires on that schedule.
 
@@ -29,21 +49,8 @@ After connecting an Amazon account, the plugin retrieves Alexa devices and routi
 - Alexa routines exposed as momentary HomeKit switches
 - An on/off fallback for otherwise unknown Alexa device types
 - Optional Matter projection on Homebridge 2 for lights, locks, outlets, and switches
-- Optional bearer-authenticated Local Context API for Kokochi Pilot
 
-## Kokochi Pilot Local Context API
-
-The integration settings are shown when `homebridge-kokochi-pilot` is installed in the same Homebridge environment.
-
-The API is disabled by default and always binds to `127.0.0.1` on port `40321` by default. It cannot be configured for LAN exposure. Separate API-receive and event-delivery bearer tokens are generated into the plugin persist directory with mode `0600`; either token can be explicitly overridden in advanced settings.
-
-Send `Authorization: Bearer <apiToken>` with every request. `GET /v1/info` describes the implementation. Devices provide common `capabilities` and a `snapshot` containing `observedAt`, `stale`, `stateConfidence`, and normalized state. In addition to the discovery routes, `GET /v1/devices/{id}/state`, `GET /v1/devices/{id}/capabilities`, and `PATCH /v1/devices/{id}/state` are available. A patch requires `operationId` and uses the common `changes` envelope, for example `{"operationId":"...","controlContext":{"source":"kokochi-pilot"},"changes":{"hvac":{"mode":"cool"}}}`. Lock state is read-only.
-
-The initial scope is locks, thermostats, temperature, and humidity. A write is reported as `confirmed` only after a new Alexa state query matches the requested common state. The shared cache is never changed to a guessed command result. When an event URL is configured, confirmed operations and cache differences are delivered using the separate event token; changes not associated with a Local Context operation are labeled `external-or-unknown`.
-
-The API exposes only devices selected by the existing discovery filters. It shares the existing Alexa authentication, state cache, polling, and command wrapper; it does not create another Alexa session or alter the HomeKit/Matter projections.
-
-## First-run journey
+## Setup
 
 ### Connect Amazon
 
@@ -63,7 +70,7 @@ Choose the items to publish and optionally assign HomeKit-specific names.
 
 Save the configuration and restart the Child Bridge. The chosen accessories will then be published to Apple Home.
 
-## Alexa-to-HomeKit translation
+## Supported devices
 
 The plugin evaluates both the Alexa device type and the operations reported for that endpoint.
 
@@ -112,7 +119,7 @@ Some Alexa-connected devices do not send state events after a physical control o
 
 Some Alexa integrations do not provide current state or return stale values. For those devices, the state displayed through HomeKit or Matter may differ from the physical device. Periodic refresh reflects the state reported by Alexa; it cannot force an Alexa integration to refresh a value that Alexa itself has not updated.
 
-### Hardware paths verified during development
+### Devices tested during development
 
 - Qrio Lock: lock, unlock, and current state
 - Alexa-connected light: power, brightness, color temperature, and current state
@@ -168,4 +175,4 @@ The release-target check verifies the npm package metadata, the `origin` push UR
 
 Some dependencies communicate through Amazon interfaces that are not public APIs. Authentication or device control may therefore need maintenance after Amazon-side changes. This project is not an Amazon product and is not affiliated with any device manufacturer.
 
-The codebase began from the MIT-licensed `joeyhage/homebridge-alexa-smarthome` project and now uses its own package name, platform identity, configuration UI, authentication journey, and device-selection workflow. Its README text is independently written rather than reproduced from the upstream project. Publishing the same Alexa endpoint through both plugins will produce duplicate HomeKit accessories.
+This plugin is based on the MIT-licensed [joeyhage/homebridge-alexa-smarthome](https://github.com/joeyhage/homebridge-alexa-smarthome) project. Authentication, device selection, naming, the settings UI, and Matter support are maintained here. If both plugins publish the same device, Apple Home will show it twice.
