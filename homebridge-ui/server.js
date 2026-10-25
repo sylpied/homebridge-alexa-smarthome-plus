@@ -1,5 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
+const { isKokochiInstalled } = require('../integrations');
 const AlexaRemoteModule = require('alexa-remote2');
 const AlexaRemote = AlexaRemoteModule.default || AlexaRemoteModule;
 const AlexaCookie = require('alexa-cookie2');
@@ -73,23 +74,8 @@ const normalizeRoutines = (response) => {
 
       this.onRequest('/auth/status', this.authStatus.bind(this));
       this.onRequest('/integrations', async () => {
-        const roots = [
-          this.homebridgeStoragePath,
-          path.dirname(path.dirname(__dirname)),
-          path.dirname(process.execPath) + '/../lib',
-          ...require('node:module').globalPaths,
-        ];
         return {
-          kokochiInstalled: roots.some((root) => {
-            try {
-              require.resolve('homebridge-kokochi-pilot/package.json', {
-                paths: [root],
-              });
-              return true;
-            } catch {
-              return false;
-            }
-          }),
+          kokochiInstalled: isKokochiInstalled(this.homebridgeStoragePath),
         };
       });
       this.onRequest('/auth/start', this.startAuthentication.bind(this));

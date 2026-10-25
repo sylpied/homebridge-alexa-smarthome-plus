@@ -10,6 +10,7 @@ import { Option } from 'fp-ts/Option';
 import * as TE from 'fp-ts/TaskEither';
 import { constVoid, constant, flow, identity, pipe } from 'fp-ts/lib/function';
 import fs from 'fs';
+import path from 'path';
 import {
   API,
   Characteristic,
@@ -118,7 +119,12 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
       this.log,
     );
     this.localContextServer = new LocalContextServer(
-      this.config.localContext,
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      require('../integrations').isKokochiInstalled(
+        path.dirname(api.user.persistPath()),
+      )
+        ? this.config.localContext
+        : undefined,
       this.alexaApi,
       this.deviceStore,
       this.Service,

@@ -531,6 +531,9 @@ export class LocalContextServer {
   }
 
   private async onStateUpdate(deviceId: string): Promise<void> {
+    if (this.config?.enabled !== true) {
+      return;
+    }
     const device = this.devices.get(deviceId);
     if (!device) {
       return;
